@@ -1,0 +1,26 @@
+{
+  "model_version": "1.0.0",
+  "trained_at": "2026-06-10T12:23:30.466732+00:00",
+  "rmse": 5.9244,
+  "mae": 4.7783,
+  "r2": 0.980137,
+  "accuracy_within_15min": 0.988,
+  "accuracy_within_15min_pct": 98.8,
+  "target_met": true,
+  "feature_names": [
+    "fog_index",
+    "rainfall_mm",
+    "signal_status",
+    "congestion_level",
+    "time_of_day",
+    "train_type"
+  ],
+  "target_column": "actual_delay_min",
+  "n_estimators": 200,
+  "max_depth": 6,
+  "learning_rate": 0.1,
+  "train_size": 4000,
+  "test_size": 1000,
+  "model_path": "P:\\Rail_Sense\\backend\\models\\delay_v1.pkl",
+  "plot_path": "P:\\Rail_Sense\\backend\\models\\feature_importance.png"
+}

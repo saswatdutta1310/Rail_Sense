@@ -1,0 +1,16 @@
+{
+  "name": "ntes-bridge",
+  "version": "1.0.0",
+  "description": "Thin Node.js bridge that wraps irctc-connect for the RailSense FastAPI backend",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "irctc-connect": "^1.0.0"
+  }
+}

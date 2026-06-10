@@ -22,7 +22,7 @@ export default {
         outline: '#737782',
         'outline-variant': '#c2c6d3',
         'surface-tint': '#265ea8',
-        primary: '#003e7e',
+        primary: '#1A56A0',
         'on-primary': '#ffffff',
         'primary-container': '#1a56a0',
         'on-primary-container': '#b3cdff',
@@ -35,7 +35,7 @@ export default {
         'on-tertiary': '#ffffff',
         'tertiary-container': '#4b5962',
         'on-tertiary-container': '#c0cfda',
-        error: '#ba1a1a',
+        error: '#C0392B',
         'on-error': '#ffffff',
         'error-container': '#ffdad6',
         'on-error-container': '#93000a',
@@ -56,17 +56,17 @@ export default {
         'surface-variant': '#d3e4fe',
         
         // Legacy colors to prevent build errors during transition
-        navy: '#213145',
+        navy: '#0F3460',
         midBlue: '#1a56a0',
         accentBlue: '#dce9ff',
         lightBlue: '#eff4ff',
         success: '#10B981',
         warning: '#F59E0B',
-        danger: '#ba1a1a',
+        danger: '#C0392B',
         neutralDark: '#0b1c30',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'Noto Sans', 'sans-serif'],
         mono: ['Geist', 'monospace'],
       },
       borderRadius: {

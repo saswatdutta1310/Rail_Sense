@@ -44,7 +44,16 @@ async def subscribe_sms(req: SubscriptionRequest, db: AsyncSession = Depends(get
     if train:
         await db.commit()
     
-    print(f"✅ [SMS Mock] Subscribed {req.phone_number} to alerts for Train {req.train_number} in {req.language.upper()}")
+    from app.services.sms import send_delay_alert
+    
+    # Send a real subscription confirmation via Twilio
+    send_delay_alert(
+        target_phone_number=req.phone_number,
+        train_number=req.train_number,
+        delay_time_minutes=0
+    )
+    
+    print(f"✅ [SMS Dispatch] Subscribed {req.phone_number} to alerts for Train {req.train_number} in {req.language.upper()}")
     
     return SubscriptionResponse(
         subscription_id=sub_id,
