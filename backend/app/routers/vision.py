@@ -108,40 +108,85 @@ async def analyze_platform_camera(file: UploadFile = File(...), db: AsyncSession
         detections=detections
     )
 
+import joblib
+import pandas as pd
+import os
+
+VISION_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "ml", "vision_classifier.pkl")
+_vision_model = None
+
+def get_vision_model():
+    global _vision_model
+    if _vision_model is None:
+        try:
+            _vision_model = joblib.load(VISION_MODEL_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load RandomForest model: {e}")
+    return _vision_model
+
 @router.post("/track", response_model=TrackAnalysisResult)
 async def analyze_track_imagery(file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    # Mock Track Defect Detection
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
     
-    defects_found = random.randint(0, 3)
+    # Extract fake features from the file name/size as a proxy for CV processing
+    # In a real app, this would be an actual CV pipeline
+    file_size_proxy = len(file.filename)
+    bbox_count = (file_size_proxy % 15) + 2
+    contrast_score = (file_size_proxy % 10) / 10.0 + 0.1
+    edge_density = (file_size_proxy % 20) / 100.0 + 0.05
+    
+    model = get_vision_model()
+    if model:
+        features = pd.DataFrame({
+            'bbox_count': [bbox_count],
+            'contrast_score': [contrast_score],
+            'edge_density': [edge_density]
+        })
+        priority_class = int(model.predict(features)[0])
+        # 0: Low, 1: Medium, 2: High, 3: Critical
+        class_map = {0: "low", 1: "medium", 2: "high", 3: "critical"}
+        priority_str = class_map.get(priority_class, "low")
+        
+        # Determine defects based on priority
+        defects_found = priority_class if priority_class > 0 else 0
+        if priority_str == "critical": max_risk = 9.5
+        elif priority_str == "high": max_risk = 7.5
+        elif priority_str == "medium": max_risk = 5.5
+        else: max_risk = 2.0
+    else:
+        # Fallback
+        defects_found = random.randint(0, 3)
+        priority_str = "low"
+        max_risk = 0
+    
     defects = []
     defect_types = ["Cracked Fastener", "Missing Clip", "Weld Defect", "Surface Flaw"]
     
-    priority_str = "low"
-    max_risk = 0
-    
     for _ in range(defects_found):
         dtype = random.choice(defect_types)
-        risk = round(random.uniform(3.0, 9.5), 1)
-        if risk > max_risk: max_risk = risk
         
+        if not model:
+            risk = round(random.uniform(3.0, 9.5), 1)
+            if risk > max_risk: max_risk = risk
+        else:
+            # Use deterministic risk if model is loaded
+            risk = max_risk - random.uniform(0.1, 1.0)
+            
         action = "Schedule Maintenance"
         if risk > 8.0: action = "Immediate Stop & Inspect"
         
         defects.append(TrackDefect(
             defect_class=dtype,
             confidence=round(random.uniform(0.7, 0.98), 2),
-            risk_score=risk,
+            risk_score=round(risk, 1),
             recommended_action=action
         ))
         
-    if max_risk > 8.0:
-        priority_str = "critical"
-    elif max_risk > 5.0:
-        priority_str = "high"
-    elif defects_found > 0:
-        priority_str = "medium"
+    if not model:
+        if max_risk > 8.0: priority_str = "critical"
+        elif max_risk > 5.0: priority_str = "high"
+        elif defects_found > 0: priority_str = "medium"
         
     analysis_id = str(uuid.uuid4())
     

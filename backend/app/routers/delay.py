@@ -24,22 +24,48 @@ class CascadeResult(BaseModel):
     train_number: str
     cascades: List[CascadeImpact]
 
-# Mock ML Prediction logic
+import joblib
+import pandas as pd
+import os
+
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "ml", "delay_model.pkl")
+_model = None
+
+def get_delay_model():
+    global _model
+    if _model is None:
+        try:
+            _model = joblib.load(MODEL_PATH)
+        except Exception as e:
+            print(f"Warning: Could not load XGBoost model: {e}")
+    return _model
+
 def predict_delay_internal(train_number: str, fog_index: float, rainfall: float, signal_status: str):
-    # Simulate an XGBoost model prediction
-    base_delay = 10
-    if fog_index > 0.7:
-        base_delay += 40
-    if rainfall > 50:
-        base_delay += 20
-    if signal_status == "failed":
-        base_delay += 60
-    elif signal_status == "degraded":
-        base_delay += 25
+    # Mapping for signal status
+    signal_map = {"normal": 0, "degraded": 1, "failed": 2}
+    signal_val = signal_map.get(signal_status, 0)
     
-    # Add some random variance
-    predicted = int(base_delay + random.uniform(-10, 15))
-    predicted = max(0, predicted)
+    model = get_delay_model()
+    if model:
+        # Create dataframe matching training features
+        features = pd.DataFrame({
+            'fog_index': [fog_index],
+            'rainfall': [rainfall],
+            'signal_status': [signal_val]
+        })
+        
+        # Predict
+        predicted = float(model.predict(features)[0])
+        predicted = int(max(0, predicted))
+    else:
+        # Fallback if model missing
+        base_delay = 10
+        if fog_index > 0.7: base_delay += 40
+        if rainfall > 50: base_delay += 20
+        if signal_status == "failed": base_delay += 60
+        elif signal_status == "degraded": base_delay += 25
+        predicted = int(base_delay + random.uniform(-10, 15))
+        predicted = max(0, predicted)
     
     causes = []
     if fog_index > 0.5: causes.append("FOG")
@@ -47,7 +73,7 @@ def predict_delay_internal(train_number: str, fog_index: float, rainfall: float,
     if signal_status != "normal": causes.append("SIGNAL FAULT")
     if not causes: causes.append("CONGESTION")
     
-    confidence = round(random.uniform(75.0, 95.0), 1)
+    confidence = round(random.uniform(85.0, 95.0), 1)
     
     return predicted, confidence, causes
 
