@@ -1,11 +1,13 @@
 from fastapi import FastAPI
-from .routers import auth, delay, vision
+from .routers import auth, delay, vision, sms, impact
 
 app = FastAPI(title="RailSense AI", version="1.0.0")
 
 app.include_router(auth.router)
 app.include_router(delay.router)
 app.include_router(vision.router)
+app.include_router(sms.router)
+app.include_router(impact.router)
 
 @app.get("/")
 async def root():
