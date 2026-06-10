@@ -55,8 +55,8 @@ export default function DelayPredictor() {
   return (
     <div className="flex flex-col md:flex-row gap-6 h-full">
       {/* Left Panel - Controls */}
-      <div className="w-full md:w-1/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200 h-fit">
-        <h2 className="text-xl font-semibold text-navy mb-6">Prediction Parameters</h2>
+      <div className="w-full md:w-1/3 bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant h-fit">
+        <h2 className="text-xl font-semibold text-on-surface mb-6">Prediction Parameters</h2>
         
         <div className="space-y-5">
           <div>
@@ -113,7 +113,7 @@ export default function DelayPredictor() {
           <button 
             onClick={handlePredict}
             disabled={!trainNo || loading}
-            className="w-full bg-primary hover:bg-navy text-white font-semibold py-3 rounded-md transition-colors disabled:opacity-50"
+            className="w-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-semibold py-3 rounded-md transition-colors disabled:opacity-50"
           >
             {loading ? 'Analyzing...' : 'Predict Delay'}
           </button>
@@ -124,8 +124,8 @@ export default function DelayPredictor() {
       <div className="w-full md:w-2/3 space-y-6">
         {result ? (
           <>
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-              <h2 className="text-xl font-semibold text-navy mb-4">Prediction Result</h2>
+            <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
+              <h2 className="text-xl font-semibold text-on-surface mb-4">Prediction Result</h2>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-slate-500 uppercase tracking-wide">Expected Delay</div>
@@ -139,11 +139,11 @@ export default function DelayPredictor() {
                 </div>
               </div>
               
-              <div className="mt-6 pt-6 border-t border-slate-100">
-                <div className="text-sm font-medium text-neutralDark mb-3">Identified Root Causes:</div>
+              <div className="mt-6 pt-6 border-t border-surface-container-highest">
+                <div className="text-sm font-medium text-on-surface-variant mb-3">Identified Root Causes:</div>
                 <div className="flex flex-wrap gap-2">
                   {result.root_causes.map((cause: string) => (
-                    <span key={cause} className="bg-red-100 text-danger px-3 py-1 rounded-full text-sm font-bold tracking-wide">
+                    <span key={cause} className="bg-error-container text-on-error-container px-3 py-1 rounded-full text-sm font-bold tracking-wide">
                       {cause}
                     </span>
                   ))}
@@ -152,20 +152,20 @@ export default function DelayPredictor() {
             </div>
 
             {cascade && (
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h2 className="text-xl font-semibold text-navy mb-4">Cascade Impact Analysis</h2>
+              <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
+                <h2 className="text-xl font-semibold text-on-surface mb-4">Cascade Impact Analysis</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">Downstream Train</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">Est. Ripple Delay</th>
+                      <tr className="bg-surface-container-low border-b border-outline-variant">
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">Downstream Train</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">Est. Ripple Delay</th>
                       </tr>
                     </thead>
                     <tbody>
                       {cascade.cascades.map((c: any, idx: number) => (
-                        <tr key={idx} className="border-b border-slate-100">
-                          <td className="px-4 py-3 text-sm text-neutralDark font-medium">{c.downstream_train}</td>
+                        <tr key={idx} className="border-b border-surface-container-highest">
+                          <td className="px-4 py-3 text-sm text-on-surface-variant font-medium">{c.downstream_train}</td>
                           <td className="px-4 py-3 text-sm text-warning font-semibold">+{c.impact_delay_min} min</td>
                         </tr>
                       ))}
@@ -176,10 +176,10 @@ export default function DelayPredictor() {
             )}
           </>
         ) : (
-          <div className="bg-white p-12 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center h-full">
-            <Clock className="w-16 h-16 text-slate-300 mb-4" />
-            <h3 className="text-xl font-semibold text-slate-400">Awaiting Input</h3>
-            <p className="text-slate-500 mt-2">Enter a train number and adjust parameters to see AI prediction.</p>
+          <div className="bg-surface-container-lowest p-12 rounded-lg shadow-sm border border-outline-variant flex flex-col items-center justify-center text-center h-full">
+            <Clock className="w-16 h-16 text-outline mb-4" />
+            <h3 className="text-xl font-semibold text-on-surface-variant">Awaiting Input</h3>
+            <p className="text-outline mt-2">Enter a train number and adjust parameters to see AI prediction.</p>
           </div>
         )}
       </div>

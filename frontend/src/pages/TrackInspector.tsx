@@ -50,22 +50,22 @@ export default function TrackInspector() {
   return (
     <div className="flex flex-col md:flex-row gap-6 h-full">
       {/* Left Panel - Upload */}
-      <div className="w-full md:w-1/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-        <h2 className="text-xl font-semibold text-navy mb-6">Track Input Data</h2>
+      <div className="w-full md:w-1/3 bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
+        <h2 className="text-xl font-semibold text-on-surface mb-6">Track Input Data</h2>
         
         <div className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-neutralDark mb-2">Track Segment (Line & KM Marker)</label>
+            <label className="block text-sm font-medium text-on-surface-variant mb-2">Track Segment (Line & KM Marker)</label>
             <div className="flex gap-2">
-              <input type="text" placeholder="Line (e.g. Main)" className="w-1/2 px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-primary outline-none" />
-              <input type="text" placeholder="KM (e.g. 142.5)" className="w-1/2 px-4 py-2 border border-slate-300 rounded-md focus:ring-2 focus:ring-primary outline-none" />
+              <input type="text" placeholder="Line (e.g. Main)" className="w-1/2 px-4 py-2 border border-outline rounded-md focus:ring-2 focus:ring-primary outline-none" />
+              <input type="text" placeholder="KM (e.g. 142.5)" className="w-1/2 px-4 py-2 border border-outline rounded-md focus:ring-2 focus:ring-primary outline-none" />
             </div>
           </div>
 
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-8 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors">
-            <UploadCloud className="w-10 h-10 text-slate-400 mb-3" />
-            <p className="text-sm text-neutralDark mb-2 text-center">Upload track surface image</p>
-            <label className="bg-white border border-slate-300 text-neutralDark px-4 py-2 rounded shadow-sm cursor-pointer hover:bg-slate-50 text-sm">
+          <div className="border-2 border-dashed border-outline rounded-lg p-8 flex flex-col items-center justify-center bg-surface-container-low hover:bg-surface-container transition-colors">
+            <UploadCloud className="w-10 h-10 text-outline mb-3" />
+            <p className="text-sm text-on-surface-variant mb-2 text-center">Upload track surface image</p>
+            <label className="bg-surface-container-lowest border border-outline text-on-surface-variant px-4 py-2 rounded shadow-sm cursor-pointer hover:bg-surface-container-low text-sm">
               Browse Files
               <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
             </label>
@@ -75,7 +75,7 @@ export default function TrackInspector() {
           <button 
             onClick={handleAnalyze}
             disabled={!file || analyzing}
-            className="w-full bg-primary hover:bg-navy text-white font-semibold py-3 rounded-md transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+            className="w-full bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container font-semibold py-3 rounded-md transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
           >
             <Navigation className="w-5 h-5" />
             {analyzing ? 'Scanning Track...' : 'Run Diagnostics'}
@@ -84,11 +84,11 @@ export default function TrackInspector() {
       </div>
 
       {/* Right Panel - Results */}
-      <div className="w-full md:w-2/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+      <div className="w-full md:w-2/3 bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-navy">Diagnostic Report</h2>
+            <h2 className="text-xl font-semibold text-on-surface">Diagnostic Report</h2>
             {result && (
-                <span className={`px-4 py-1 rounded-full text-sm font-bold tracking-wider text-white ${result.maintenance_priority === 'Critical' || result.maintenance_priority === 'High' ? 'bg-danger' : 'bg-warning'}`}>
+                <span className={`px-4 py-1 rounded-full text-sm font-bold tracking-wider text-on-error ${result.maintenance_priority === 'Critical' || result.maintenance_priority === 'High' ? 'bg-error' : 'bg-warning'}`}>
                     PRIORITY: {result.maintenance_priority.toUpperCase()}
                 </span>
             )}
@@ -110,27 +110,27 @@ export default function TrackInspector() {
             </div>
 
             <div>
-              <h3 className="text-sm font-bold text-neutralDark uppercase tracking-wide mb-3 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-on-surface-variant uppercase tracking-wide mb-3 flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4" /> Detected Anomalies ({result.defects_found})
               </h3>
               <div className="overflow-x-auto">
                   <table className="w-full text-left">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">Defect Class</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">AI Confidence</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">Risk Score</th>
-                        <th className="px-4 py-3 text-sm font-semibold text-navy">Recommended Action</th>
+                      <tr className="bg-surface-container-low border-b border-outline-variant">
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">Defect Class</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">AI Confidence</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">Risk Score</th>
+                        <th className="px-4 py-3 text-sm font-semibold text-on-surface">Recommended Action</th>
                       </tr>
                     </thead>
                     <tbody>
                       {result.defects.map((d: any, idx: number) => (
-                        <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-4 py-3 text-sm text-neutralDark font-medium flex items-center gap-2">
-                              <Wrench className="w-4 h-4 text-slate-400" /> {d.defect_class}
+                        <tr key={idx} className="border-b border-surface-container-highest hover:bg-surface-container-low">
+                          <td className="px-4 py-3 text-sm text-on-surface-variant font-medium flex items-center gap-2">
+                              <Wrench className="w-4 h-4 text-outline" /> {d.defect_class}
                           </td>
-                          <td className="px-4 py-3 text-sm text-neutralDark">{Math.round(d.confidence * 100)}%</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-danger">{d.risk_score} / 10</td>
+                          <td className="px-4 py-3 text-sm text-on-surface-variant">{Math.round(d.confidence * 100)}%</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-error">{d.risk_score} / 10</td>
                           <td className="px-4 py-3 text-sm text-primary font-medium">{d.recommended_action}</td>
                         </tr>
                       ))}
@@ -138,16 +138,16 @@ export default function TrackInspector() {
                   </table>
                 </div>
                 <div className="mt-4 flex justify-end">
-                    <button className="bg-navy hover:bg-neutralDark text-white px-4 py-2 rounded shadow-sm text-sm font-medium transition-colors">
+                    <button className="bg-inverse-surface hover:bg-surface-tint text-inverse-on-surface px-4 py-2 rounded shadow-sm text-sm font-medium transition-colors">
                         Export Work Order
                     </button>
                 </div>
             </div>
           </div>
         ) : (
-          <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">
-             <Wrench className="w-12 h-12 text-slate-300 mb-3" />
-             <p className="text-slate-500">Upload track imagery to identify structural defects.</p>
+          <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed border-outline-variant rounded-lg bg-surface-container-low">
+             <Wrench className="w-12 h-12 text-outline mb-3" />
+             <p className="text-outline">Upload track imagery to identify structural defects.</p>
           </div>
         )}
       </div>

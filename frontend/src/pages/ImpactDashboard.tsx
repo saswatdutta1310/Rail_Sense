@@ -33,8 +33,8 @@ export default function ImpactDashboard() {
   return (
     <div className="flex flex-col md:flex-row gap-6 h-full">
       {/* Left Panel - Controls */}
-      <div className="w-full md:w-1/3 bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-        <div className="flex items-center gap-2 mb-6 text-navy">
+      <div className="w-full md:w-1/3 bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
+        <div className="flex items-center gap-2 mb-6 text-on-surface">
             <Settings2 className="w-6 h-6" />
             <h2 className="text-xl font-semibold">Scale Projections</h2>
         </div>
@@ -42,7 +42,7 @@ export default function ImpactDashboard() {
         <div className="space-y-8">
           <div>
             <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-neutralDark">Stations Deployed</label>
+                <label className="text-sm font-medium text-on-surface-variant">Stations Deployed</label>
                 <span className="font-bold text-primary">{stations}</span>
             </div>
             <input 
@@ -54,7 +54,7 @@ export default function ImpactDashboard() {
 
           <div>
              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-neutralDark">Track Monitored (KM)</label>
+                <label className="text-sm font-medium text-on-surface-variant">Track Monitored (KM)</label>
                 <span className="font-bold text-primary">{trackKm}</span>
             </div>
             <input 
@@ -66,7 +66,7 @@ export default function ImpactDashboard() {
 
           <div>
              <div className="flex justify-between items-center mb-2">
-                <label className="text-sm font-medium text-neutralDark">Avg Delay Saved (Min)</label>
+                <label className="text-sm font-medium text-on-surface-variant">Avg Delay Saved (Min)</label>
                 <span className="font-bold text-primary">{delaySaved}</span>
             </div>
             <input 
@@ -82,71 +82,71 @@ export default function ImpactDashboard() {
       <div className="w-full md:w-2/3 space-y-6">
         {metrics && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant flex flex-col items-center justify-center text-center">
                 <Clock className="w-10 h-10 text-primary mb-3" />
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Passenger Hours Saved</h3>
-                <div className="text-4xl font-black text-navy">
-                    {metrics.passenger_hours_saved_day.toLocaleString()} <span className="text-lg text-slate-500 font-medium">/ day</span>
+                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-2">Passenger Hours Saved</h3>
+                <div className="text-4xl font-black text-on-surface">
+                    {metrics.passenger_hours_saved_day.toLocaleString()} <span className="text-lg text-outline font-medium">/ day</span>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant flex flex-col items-center justify-center text-center">
                 <Droplets className="w-10 h-10 text-success mb-3" />
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Fuel Savings</h3>
-                <div className="text-4xl font-black text-navy">
-                    ₹{metrics.annual_fuel_savings_cr} <span className="text-lg text-slate-500 font-medium">Cr / yr</span>
+                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-2">Fuel Savings</h3>
+                <div className="text-4xl font-black text-on-surface">
+                    ₹{metrics.annual_fuel_savings_cr} <span className="text-lg text-outline font-medium">Cr / yr</span>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+            <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant flex flex-col items-center justify-center text-center">
                 <Target className="w-10 h-10 text-warning mb-3" />
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Animal Lives Saved</h3>
-                <div className="text-4xl font-black text-navy">
-                    {metrics.animal_lives_saved_yr.toLocaleString()} <span className="text-lg text-slate-500 font-medium">/ yr</span>
+                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-2">Animal Lives Saved</h3>
+                <div className="text-4xl font-black text-on-surface">
+                    {metrics.animal_lives_saved_yr.toLocaleString()} <span className="text-lg text-outline font-medium">/ yr</span>
                 </div>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
-                <ShieldCheck className="w-10 h-10 text-lightBlue mb-3" />
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-2">Incidents Prevented</h3>
-                <div className="text-4xl font-black text-navy">
-                    {metrics.incidents_prevented_yr.toLocaleString()} <span className="text-lg text-slate-500 font-medium">/ yr</span>
+            <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant flex flex-col items-center justify-center text-center">
+                <ShieldCheck className="w-10 h-10 text-primary-fixed mb-3" />
+                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-2">Incidents Prevented</h3>
+                <div className="text-4xl font-black text-on-surface">
+                    {metrics.incidents_prevented_yr.toLocaleString()} <span className="text-lg text-outline font-medium">/ yr</span>
                 </div>
             </div>
           </div>
         )}
 
         {/* Comparison Table */}
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-            <h2 className="text-lg font-semibold text-navy mb-4">Architecture Comparison</h2>
+        <div className="bg-surface-container-lowest p-6 rounded-lg shadow-sm border border-outline-variant">
+            <h2 className="text-lg font-semibold text-on-surface mb-4">Architecture Comparison</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-4 py-3 text-sm font-semibold text-slate-500">Feature</th>
+                  <tr className="bg-surface-container-low border-b border-outline-variant">
+                    <th className="px-4 py-3 text-sm font-semibold text-outline">Feature</th>
                     <th className="px-4 py-3 text-sm font-bold text-primary">RailSense AI</th>
-                    <th className="px-4 py-3 text-sm font-semibold text-slate-400">NTES (CRIS)</th>
-                    <th className="px-4 py-3 text-sm font-semibold text-slate-400">Project Gajraj</th>
+                    <th className="px-4 py-3 text-sm font-semibold text-outline">NTES (CRIS)</th>
+                    <th className="px-4 py-3 text-sm font-semibold text-outline">Project Gajraj</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-surface-container-highest">
                     <td className="px-4 py-3 text-sm font-medium">Hardware Required</td>
                     <td className="px-4 py-3 text-sm text-success font-bold">Zero (Software Only)</td>
-                    <td className="px-4 py-3 text-sm text-slate-500">GPS Trackers</td>
-                    <td className="px-4 py-3 text-sm text-danger">Optical Fiber Cables</td>
+                    <td className="px-4 py-3 text-sm text-outline">GPS Trackers</td>
+                    <td className="px-4 py-3 text-sm text-error">Optical Fiber Cables</td>
                   </tr>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-surface-container-highest">
                     <td className="px-4 py-3 text-sm font-medium">Predictive Capabilities</td>
                     <td className="px-4 py-3 text-sm text-success font-bold">Yes (ML-driven)</td>
-                    <td className="px-4 py-3 text-sm text-danger">No (Reactive)</td>
-                    <td className="px-4 py-3 text-sm text-danger">No (Reactive)</td>
+                    <td className="px-4 py-3 text-sm text-error">No (Reactive)</td>
+                    <td className="px-4 py-3 text-sm text-error">No (Reactive)</td>
                   </tr>
-                  <tr className="border-b border-slate-100">
+                  <tr className="border-b border-surface-container-highest">
                     <td className="px-4 py-3 text-sm font-medium">Citizen Accessible</td>
                     <td className="px-4 py-3 text-sm text-success font-bold">Yes (SMS & Web)</td>
                     <td className="px-4 py-3 text-sm text-success font-bold">Yes</td>
-                    <td className="px-4 py-3 text-sm text-danger">No</td>
+                    <td className="px-4 py-3 text-sm text-error">No</td>
                   </tr>
                 </tbody>
               </table>

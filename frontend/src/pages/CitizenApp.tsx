@@ -82,13 +82,13 @@ export default function CitizenApp() {
       
       {/* Header & Language */}
       <div className="w-full flex justify-between items-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-navy">{t.title}</h1>
-        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-md shadow-sm border border-slate-200">
-          <Globe className="w-5 h-5 text-slate-400" />
+        <h1 className="text-2xl md:text-3xl font-bold text-on-surface">{t.title}</h1>
+        <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-2 rounded-md shadow-sm border border-outline-variant">
+          <Globe className="w-5 h-5 text-outline" />
           <select 
             value={lang} 
             onChange={(e) => setLang(e.target.value)}
-            className="bg-transparent font-medium text-navy outline-none"
+            className="bg-transparent font-medium text-on-surface outline-none"
           >
             <option value="en">English</option>
             <option value="hi">हिंदी (Hindi)</option>
@@ -98,48 +98,48 @@ export default function CitizenApp() {
       </div>
 
       {/* Main Search Card */}
-      <div className="w-full bg-white p-8 rounded-xl shadow-md border border-slate-200 mb-6">
+      <div className="w-full bg-surface-container-lowest p-8 rounded-xl shadow-md border border-outline-variant mb-6">
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-3.5 w-6 h-6 text-slate-400" />
+            <Search className="absolute left-4 top-3.5 w-6 h-6 text-outline" />
             <input 
               type="text" 
               value={trainNo}
               onChange={(e) => setTrainNo(e.target.value)}
               placeholder={t.searchPlaceholder} 
-              className="w-full pl-12 pr-4 py-4 text-lg border-2 border-slate-200 rounded-lg focus:border-primary outline-none transition-colors"
+              className="w-full pl-12 pr-4 py-4 text-lg border-2 border-outline-variant rounded-lg focus:border-primary outline-none transition-colors"
             />
           </div>
           <button 
             onClick={handleSearch}
-            className="bg-primary hover:bg-navy text-white px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap"
+            className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap"
           >
             {t.searchBtn}
           </button>
         </div>
 
         {searched && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 animate-fade-in">
-            <div className="flex items-start justify-between border-b border-slate-200 pb-4 mb-4">
+          <div className="bg-surface-container-low border border-outline-variant rounded-lg p-6 animate-fade-in">
+            <div className="flex items-start justify-between border-b border-outline-variant pb-4 mb-4">
               <div>
-                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-1">{t.statusTitle}</h3>
-                <div className="text-2xl font-bold text-navy flex items-center gap-3">
+                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-1">{t.statusTitle}</h3>
+                <div className="text-2xl font-bold text-on-surface flex items-center gap-3">
                   <Train className="w-6 h-6 text-primary" />
                   {trainNo} - Howrah Rajdhani Express
                 </div>
               </div>
               <div className="text-right">
-                <div className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-1">{t.platform}</div>
-                <div className="text-3xl font-black text-navy">9</div>
+                <div className="text-sm font-bold text-outline uppercase tracking-wide mb-1">{t.platform}</div>
+                <div className="text-3xl font-black text-on-surface">9</div>
               </div>
             </div>
 
-            <div className="flex justify-between items-center bg-red-50 p-4 rounded-lg border border-red-100">
+            <div className="flex justify-between items-center bg-error-container p-4 rounded-lg border border-error">
                <div>
-                  <div className="text-sm font-bold text-danger uppercase tracking-wide mb-1">{t.delay}</div>
-                  <div className="text-3xl font-black text-danger">47 min</div>
+                  <div className="text-sm font-bold text-on-error-container uppercase tracking-wide mb-1">{t.delay}</div>
+                  <div className="text-3xl font-black text-on-error-container">47 min</div>
                </div>
-               <div className="text-sm text-danger font-medium max-w-[150px] text-right">
+               <div className="text-sm text-on-error-container font-medium max-w-[150px] text-right">
                  Due to FOG in Kanpur sector
                </div>
             </div>
@@ -149,9 +149,9 @@ export default function CitizenApp() {
 
       {/* SMS Subscription Card */}
       {searched && (
-        <div className="w-full bg-navy p-8 rounded-xl shadow-md text-white animate-fade-in">
+        <div className="w-full bg-inverse-surface p-8 rounded-xl shadow-md text-inverse-on-surface animate-fade-in">
           <div className="flex items-center gap-3 mb-6">
-            <BellRing className="w-6 h-6 text-lightBlue" />
+            <BellRing className="w-6 h-6 text-primary-fixed" />
             <h2 className="text-xl font-bold">{t.smsTitle}</h2>
           </div>
 
@@ -169,13 +169,13 @@ export default function CitizenApp() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder={t.phonePlaceholder} 
-                  className="w-full pl-12 pr-4 py-4 text-lg bg-white/10 border border-white/20 rounded-lg focus:border-lightBlue outline-none text-white placeholder:text-white/50"
+                  className="w-full pl-12 pr-4 py-4 text-lg bg-white/10 border border-white/20 rounded-lg focus:border-primary-fixed outline-none text-white placeholder:text-white/50"
                 />
               </div>
               <button 
                 onClick={handleSubscribe}
                 disabled={!phone || subscribing}
-                className="bg-lightBlue hover:bg-white text-navy px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap disabled:opacity-50"
+                className="bg-primary-fixed hover:bg-primary-fixed-dim text-on-primary-fixed px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap disabled:opacity-50"
               >
                 {subscribing ? '...' : t.subscribeBtn}
               </button>

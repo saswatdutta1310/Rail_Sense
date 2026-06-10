@@ -14,7 +14,7 @@ export default function Sidebar() {
   const location = useLocation();
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 h-screen fixed left-0 top-16 pt-6 overflow-y-auto z-10 shadow-sm hidden md:block">
+    <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant h-screen fixed left-0 top-16 pt-6 overflow-y-auto z-10 shadow-sm hidden md:block">
       <nav className="flex flex-col space-y-2 px-4">
         {NAV_ITEMS.map((item) => {
           const isActive = location.pathname === item.path;
@@ -25,11 +25,11 @@ export default function Sidebar() {
               to={item.path}
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors font-medium ${
                 isActive
-                  ? 'bg-accentBlue text-primary'
-                  : 'text-neutralDark hover:bg-slate-50'
+                  ? 'bg-secondary-container text-on-secondary-container'
+                  : 'text-on-surface-variant hover:bg-surface-container-low'
               }`}
             >
-              <Icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
+              <Icon className={`w-5 h-5 ${isActive ? 'text-on-secondary-container' : 'text-outline'}`} />
               <span>{item.name}</span>
             </Link>
           );

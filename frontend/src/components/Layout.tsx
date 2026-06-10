@@ -3,7 +3,7 @@ import Sidebar from './Sidebar';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-surface-container-low flex flex-col">
       <TopNav />
       <div className="flex flex-1 pt-16">
         <Sidebar />
