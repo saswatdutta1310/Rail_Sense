@@ -3,6 +3,7 @@
 .DS_Store
 
 # Python
+*.db
 __pycache__/
 *.py[cod]
 *$py.class

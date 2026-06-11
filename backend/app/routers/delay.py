@@ -1,33 +1,350 @@
 """
-RailSense AI — Delay Prediction Router
-Loads the trained XGBoost model once at startup and serves real predictions
-through the /api/delay/{train_no} endpoint.
+Delay Prediction API Endpoints
+
+Provides ML-powered train delay predictions with root cause analysis
+and cascade impact calculation.
+
+Endpoints:
+- POST /api/delay/predict - Get delay prediction for a train
+- GET /api/delay/predictions/{train_id} - Get recent predictions
+- GET /api/delay/stats - Get prediction statistics
 """
 
-from __future__ import annotations
-
-import logging
-import os
-import random
-from datetime import datetime, timezone
-from typing import List, Optional
-
-import joblib
-import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+import numpy as np
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
+import logging
+import os
+import uuid
 
-from app.database import get_db
-from app.models import DelayPrediction, Train
-from app.services.ntes import get_live_train_status
-from app.services.weather import WeatherData, get_live_weather
+import joblib
+from pydantic import BaseModel
+
+from .. import database, models, schemas, auth
+from ..config import settings
+from ..services.ntes import get_live_train_status
+from ..services.weather import WeatherData, get_live_weather
 
 logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/delay", tags=["Delay Prediction"])
 
-# ---------------------------------------------------------------------------
-# Router
+# Load trained model (optional - can work without ML model)
+try:
+    from ..ml.train_delay_model import DelayPredictionModel
+    model = DelayPredictionModel(model_dir="backend/ml/models")
+    model.load("delay_model_v1")
+    logger.info("✅ Delay prediction model loaded successfully")
+except Exception as e:
+    logger.warning(f"⚠️  Delay model not available: {e}. Using fallback predictions.")
+    model = None
+
+
+class CascadeImpactCalculator:
+    """Calculate cascade delay impacts on connected trains"""
+    
+    def __init__(self, db_session: AsyncSession):
+        self.db = db_session
+    
+    async def calculate(
+        self,
+        affected_train_id: str,
+        delay_minutes: int
+    ) -> List[Dict[str, Any]]:
+        """Calculate which trains are affected by a delay"""
+        cascade_impacts = []
+        
+        # Get affected train
+        result = await self.db.execute(
+            select(models.Train).where(models.Train.id == affected_train_id)
+        )
+        affected_train = result.scalars().first()
+        
+        if not affected_train:
+            return cascade_impacts
+        
+        # Find connecting trains at destination station
+        result = await self.db.execute(
+            select(models.Train).where(
+                models.Train.origin_station_id == affected_train.destination_station_id,
+                models.Train.is_active == True
+            )
+        )
+        connecting_trains = result.scalars().all()
+        
+        # Calculate impact for each connecting train
+        for train in connecting_trains:
+            # Estimate connection window (within 2 hours)
+            time_gap_hours = (train.typical_duration_min - affected_train.typical_duration_min) / 60
+            
+            if 0 < time_gap_hours < 2:
+                # Delay cascades with attenuation
+                cascade_delay = int(delay_minutes * 0.7 * (1 - time_gap_hours / 2))
+                
+                if cascade_delay > 0:
+                    impact = {
+                        "downstream_train_number": train.train_number,
+                        "downstream_train_name": train.train_name,
+                        "estimated_delay_propagation": cascade_delay,
+                        "impact_severity": "low" if cascade_delay < 10 else "medium" if cascade_delay < 30 else "high"
+                    }
+                    cascade_impacts.append(impact)
+        
+        return cascade_impacts
+
+
+@router.post("/predict", response_model=Dict[str, Any])
+async def predict_delay(
+    train_id: str,
+    weather_data: Dict[str, Any],
+    signal_status: str = "normal",
+    congestion_level: float = 0.5,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db)
+) -> Dict[str, Any]:
+    """
+    Predict train delay using ML model
+    
+    Parameters:
+    - train_id: UUID of the train
+    - weather_data: Weather conditions (condition, temperature, wind_speed_kmh, precipitation_mm)
+    - signal_status: Signal system status (normal, degraded, critical)
+    - congestion_level: Platform/track congestion (0-1)
+    
+    Returns:
+    - Predicted delay in minutes with confidence
+    - Root causes analysis
+    - Cascade impacts on connected trains
+    """
+    # Get train
+    result = await db.execute(select(models.Train).where(models.Train.id == train_id))
+    train = result.scalars().first()
+    if not train:
+        raise HTTPException(status_code=404, detail="Train not found")
+    
+    # Get origin station info
+    result = await db.execute(select(models.Station).where(models.Station.id == train.origin_station_id))
+    origin_station = result.scalars().first()
+    
+    # Get historical delays for this train
+    result = await db.execute(
+        select(models.DelayPrediction.predicted_delay_min)
+        .where(models.DelayPrediction.train_id == train_id)
+        .order_by(models.DelayPrediction.created_at.desc())
+        .limit(30)
+    )
+    historical_delays = [row[0] for row in result.all()]
+    
+    # Predict delay
+    if model is not None:
+        try:
+            # Use ML model for prediction
+            predicted_delay_min, confidence_pct = _ml_predict(
+                train, origin_station, weather_data, signal_status, congestion_level
+            )
+        except Exception as e:
+            logger.warning(f"ML prediction failed: {e}. Using fallback.")
+            predicted_delay_min, confidence_pct = _fallback_prediction(train.train_type, weather_data)
+    else:
+        predicted_delay_min, confidence_pct = _fallback_prediction(train.train_type, weather_data)
+    
+    # Identify root causes
+    root_causes = _identify_root_causes(weather_data, signal_status, congestion_level)
+    
+    # Calculate cascade impacts
+    cascade_calc = CascadeImpactCalculator(db)
+    cascade_impacts = await cascade_calc.calculate(train_id, predicted_delay_min)
+    
+    # Store prediction record
+    prediction_id = str(uuid.uuid4())
+    prediction_record = models.DelayPrediction(
+        id=prediction_id,
+        train_id=train_id,
+        predicted_delay_min=predicted_delay_min,
+        confidence_pct=confidence_pct,
+        root_causes=root_causes,
+        weather_input=weather_data,
+        signal_status=signal_status,
+        congestion_level=congestion_level,
+        model_version="v1"
+    )
+    db.add(prediction_record)
+    await db.commit()
+    
+    # Format response
+    response = {
+        "train_number": train.train_number,
+        "train_name": train.train_name,
+        "predicted_delay_min": predicted_delay_min,
+        "confidence_pct": confidence_pct,
+        "root_causes": root_causes,
+        "signal_status": signal_status,
+        "congestion_level": congestion_level,
+        "cascade_impacts": cascade_impacts,
+        "prediction_id": prediction_id,
+        "predicted_at": datetime.utcnow().isoformat()
+    }
+    
+    logger.info(f"Predicted {predicted_delay_min}min delay for {train.train_number} (conf: {confidence_pct:.0f}%)")
+    
+    return response
+
+
+@router.get("/predictions/{train_id}", response_model=List[schemas.DelayPredictionOut])
+async def get_train_predictions(
+    train_id: str,
+    limit: int = 10,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db)
+) -> List[schemas.DelayPredictionOut]:
+    """Get recent predictions for a specific train"""
+    result = await db.execute(
+        select(models.DelayPrediction)
+        .where(models.DelayPrediction.train_id == train_id)
+        .order_by(models.DelayPrediction.created_at.desc())
+        .limit(limit)
+    )
+    predictions = result.scalars().all()
+    return predictions
+
+
+@router.get("/stats", response_model=Dict[str, Any])
+async def get_prediction_stats(
+    current_user: models.User = Depends(auth.get_current_user),
+    db: AsyncSession = Depends(database.get_db)
+) -> Dict[str, Any]:
+    """Get statistics on delay predictions"""
+    from sqlalchemy import func
+    
+    result = await db.execute(
+        select(
+            func.count(models.DelayPrediction.id).label("total_predictions"),
+            func.avg(models.DelayPrediction.predicted_delay_min).label("avg_delay"),
+            func.avg(models.DelayPrediction.confidence_pct).label("avg_confidence"),
+            func.max(models.DelayPrediction.predicted_delay_min).label("max_delay"),
+            func.min(models.DelayPrediction.predicted_delay_min).label("min_delay"),
+        )
+    )
+    
+    row = result.first()
+    
+    return {
+        "total_predictions": row[0] or 0,
+        "average_delay_min": float(row[1] or 0),
+        "average_confidence_pct": float(row[2] or 0),
+        "max_delay_min": float(row[3] or 0),
+        "min_delay_min": float(row[4] or 0),
+        "model_version": "v1",
+        "last_updated": datetime.utcnow().isoformat()
+    }
+
+
+def _ml_predict(
+    train: models.Train,
+    origin_station: models.Station,
+    weather_data: Dict,
+    signal_status: str,
+    congestion_level: float
+) -> tuple:
+    """Use ML model for prediction"""
+    try:
+        from ..ml.feature_engineering import DelayFeatureEngineer
+        
+        engineer = DelayFeatureEngineer()
+        
+        features, _ = engineer.engineer_features(
+            train_data={
+                "train_type": train.train_type,
+                "typical_duration_min": train.typical_duration_min
+            },
+            station_data={
+                "station_code": origin_station.station_code if origin_station else "UNKNOWN",
+                "platform_count": origin_station.platform_count if origin_station else 5,
+                "has_cctv": origin_station.has_cctv if origin_station else False,
+                "zone": origin_station.zone if origin_station else "NR"
+            },
+            weather_data=weather_data,
+            signal_data={
+                "status": signal_status,
+                "grid_health_pct": 95 if signal_status == "normal" else 80 if signal_status == "degraded" else 60,
+            },
+            congestion_data={
+                "platform_occupancy_pct": congestion_level * 100,
+                "track_utilization_pct": congestion_level * 85,
+                "nearby_trains_count": int(congestion_level * 10),
+            }
+        )
+        
+        predictions, confidence = model.predict(features.reshape(1, -1))
+        return int(predictions[0]), float(confidence[0] * 100)
+    except Exception as e:
+        logger.error(f"ML prediction error: {e}")
+        raise
+
+
+def _fallback_prediction(train_type: str, weather_data: Dict) -> tuple:
+    """Fallback prediction logic without ML model"""
+    # Base delays by train type
+    base_delays = {
+        "Rajdhani": 5,
+        "Shatabdi": 3,
+        "Express": 12,
+        "Mail": 18,
+        "Passenger": 20,
+    }
+    
+    base_delay = base_delays.get(train_type, 10)
+    
+    # Weather impact
+    weather_condition = weather_data.get("condition", "clear").lower()
+    weather_impact = {
+        "clear": 0,
+        "rain": 8,
+        "fog": 12,
+        "snow": 25,
+        "cyclone": 45,
+    }.get(weather_condition, 0)
+    
+    predicted_delay = base_delay + weather_impact
+    confidence = 75 - min(weather_impact * 2, 30)  # Lower confidence with worse weather
+    
+    return int(predicted_delay), float(confidence)
+
+
+def _identify_root_causes(weather_data: Dict, signal_status: str, congestion_level: float) -> List[str]:
+    """Identify likely root causes of delays"""
+    causes = []
+    
+    # Weather causes
+    weather = weather_data.get("condition", "").lower()
+    if weather != "clear":
+        causes.append(f"Adverse weather: {weather}")
+    
+    wind = weather_data.get("wind_speed_kmh", 0)
+    if wind > 50:
+        causes.append(f"High wind speed: {wind} km/h")
+    
+    precip = weather_data.get("precipitation_mm", 0)
+    if precip > 20:
+        causes.append(f"Heavy precipitation: {precip}mm")
+    
+    # Signal causes
+    if signal_status != "normal":
+        causes.append(f"Signal system {signal_status}")
+    
+    # Congestion causes
+    if congestion_level > 0.7:
+        causes.append("High platform/track congestion")
+    elif congestion_level > 0.5:
+        causes.append("Moderate congestion")
+    
+    # Default if no causes found
+    if not causes:
+        causes.append("Routine scheduling")
+    
+    return causes
 # ---------------------------------------------------------------------------
 router = APIRouter(prefix="/api/delay", tags=["Delay Predictor"])
 
@@ -360,7 +677,7 @@ async def get_cascade_impact(train_no: str):
 async def get_delay_prediction(
     train_no: str,
     request: DelayRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(database.get_db),
 ):
     """
     Predict delay for a given train number.

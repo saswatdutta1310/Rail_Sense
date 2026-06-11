@@ -1,21 +1,23 @@
-import { Link } from 'react-router-dom';
-import { User, Train } from 'lucide-react';
 
 export default function TopNav() {
   return (
-    <nav className="h-16 bg-navy text-white flex items-center justify-between px-6 shadow-md fixed w-full z-30">
-      <div className="flex items-center space-x-3">
-        <Train className="w-8 h-8 text-primary-fixed" />
-        <Link to="/" className="text-xl font-bold tracking-wide">
-          RailSense <span className="text-primary-fixed">AI</span>
-        </Link>
-      </div>
-      <div className="flex items-center space-x-4">
-        <button className="flex items-center space-x-2 bg-primary hover:bg-primary-container px-4 py-2 rounded-md transition-colors text-sm font-semibold text-white">
-          <User className="w-4 h-4" />
-          <span>Admin Login</span>
-        </button>
-      </div>
-    </nav>
+<header className="fixed top-0 right-0 w-[calc(100%-280px)] h-16 bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline flex justify-between items-center px-gutter z-40">
+<div className="flex items-center gap-4">
+<div className="relative group">
+<span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input className="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-lg text-body-sm w-80 focus:ring-2 focus:ring-primary-container outline-none transition-all" placeholder="Search railway assets..." type="text"/>
+</div>
+</div>
+<div className="flex items-center gap-6">
+<div className="flex items-center gap-2">
+<span className="material-symbols-outlined text-primary">cloud_done</span>
+<span className="font-label-md text-label-md text-on-surface-variant">Systems Nominal</span>
+</div>
+<button className="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-md text-label-md font-bold hover:bg-primary-container active:opacity-80 transition-all flex items-center gap-2">
+<span className="material-symbols-outlined text-sm">lock_open</span>
+                Admin Login
+            </button>
+</div>
+</header>
   );
 }

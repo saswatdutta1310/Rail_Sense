@@ -1,71 +1,79 @@
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Clock, ShieldAlert, Wrench, Smartphone, BarChart3 } from 'lucide-react';
-
-const NAV_ITEMS = [
-  { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'Delay Predictor', path: '/delay', icon: Clock },
-  { name: 'PlatformGuard', path: '/platform', icon: ShieldAlert },
-  { name: 'Track Inspector', path: '/track', icon: Wrench },
-  { name: 'CitizenApp', path: '/citizen', icon: Smartphone },
-  { name: 'Impact Dashboard', path: '/impact', icon: BarChart3 },
-];
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar() {
-  const location = useLocation();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <aside className="w-64 bg-surface-container-lowest border-r border-outline-variant h-screen fixed left-0 top-16 pt-6 overflow-y-auto z-10 shadow-sm hidden md:block">
-        <nav className="flex flex-col space-y-2 px-4">
-          {NAV_ITEMS.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors font-medium ${
-                  isActive
-                    ? 'bg-secondary-container text-on-secondary-container'
-                    : 'text-on-surface-variant hover:bg-surface-container-low'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'text-on-secondary-container' : 'text-outline'}`} />
-                <span>{item.name}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </aside>
-
-      {/* Mobile Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-surface-container-lowest border-t border-outline-variant flex justify-around items-center h-16 z-40 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        {NAV_ITEMS.map((item) => {
-          const isActive = location.pathname === item.path;
-          const Icon = item.icon;
-          // Use shortened names for mobile if needed, or rely on text-[10px]
-          const shortName = item.name === 'Delay Predictor' ? 'Delay' : 
-                            item.name === 'Track Inspector' ? 'Track' : 
-                            item.name === 'Impact Dashboard' ? 'Impact' : item.name;
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                isActive ? 'text-primary' : 'text-outline hover:text-on-surface-variant'
-              }`}
-            >
-              <div className={`${isActive ? 'bg-primary-container text-on-primary-container px-4 py-0.5 rounded-full' : ''}`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'text-on-primary-container' : ''}`} />
-              </div>
-              <span className={`text-[10px] font-medium tracking-wide ${isActive ? 'text-on-surface' : ''}`}>
-                {shortName}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-    </>
+<aside className="fixed left-0 top-0 h-full w-[280px] bg-secondary dark:bg-on-secondary-fixed border-r border-outline-variant dark:border-outline shadow-sm flex flex-col py-6 z-50">
+{/* Brand Identity */}
+<div className="px-6 mb-8">
+<div className="flex items-center gap-3">
+<div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+<span className="material-symbols-outlined text-on-primary" style={{ fontVariationSettings: "'FILL' 1" }}>train</span>
+</div>
+<div>
+<h1 className="font-headline-md text-headline-md font-bold text-on-primary leading-tight">RailSense AI</h1>
+<p className="font-label-md text-label-md text-secondary-fixed opacity-70">Intelligence Layer</p>
+</div>
+</div>
+</div>
+{/* Navigation Links */}
+<nav className="flex-1 space-y-1">
+<Link className="flex items-center gap-4 px-6 py-3 border-l-4 border-primary-fixed bg-secondary-fixed-dim/10 text-on-secondary-fixed font-bold hover:bg-secondary-fixed-dim/20 transition-colors duration-150 active:scale-95" to="/">
+<span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>dashboard</span>
+<span className="font-label-md text-label-md">Dashboard</span>
+</Link>
+<Link className="flex items-center gap-4 px-6 py-3 text-secondary-fixed opacity-80 hover:bg-secondary-fixed-dim/20 hover:text-on-secondary-fixed transition-colors duration-150 active:scale-95" to="/delay">
+<span className="material-symbols-outlined">schedule</span>
+<span className="font-label-md text-label-md">Delay Predictor</span>
+</Link>
+<Link className="flex items-center gap-4 px-6 py-3 text-secondary-fixed opacity-80 hover:bg-secondary-fixed-dim/20 hover:text-on-secondary-fixed transition-colors duration-150 active:scale-95" to="/platform">
+<span className="material-symbols-outlined">security</span>
+<span className="font-label-md text-label-md">Platform Guard</span>
+</Link>
+<Link className="flex items-center gap-4 px-6 py-3 text-secondary-fixed opacity-80 hover:bg-secondary-fixed-dim/20 hover:text-on-secondary-fixed transition-colors duration-150 active:scale-95" to="/track">
+<span className="material-symbols-outlined">engineering</span>
+<span className="font-label-md text-label-md">Track Inspector</span>
+</Link>
+<Link className="flex items-center gap-4 px-6 py-3 text-secondary-fixed opacity-80 hover:bg-secondary-fixed-dim/20 hover:text-on-secondary-fixed transition-colors duration-150 active:scale-95" to="/impact">
+<span className="material-symbols-outlined">payments</span>
+<span className="font-label-md text-label-md">Impact Dashboard</span>
+</Link>
+<Link className="flex items-center gap-4 px-6 py-3 text-secondary-fixed opacity-80 hover:bg-secondary-fixed-dim/20 hover:text-on-secondary-fixed transition-colors duration-150 active:scale-95" to="/citizen">
+<span className="material-symbols-outlined">smartphone</span>
+<span className="font-label-md text-label-md">Citizen App</span>
+</Link>
+</nav>
+{/* User Profile */}
+<div className="px-6 pt-6 border-t border-outline-variant/20 flex items-center justify-between group">
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden">
+      <span className="material-symbols-outlined text-primary">person</span>
+    </div>
+    <div className="flex flex-col">
+      <span className="font-label-md text-label-md text-on-primary font-bold">
+        {user?.full_name || 'Loading...'}
+      </span>
+      <span className="text-[10px] text-secondary-fixed-dim tracking-wider uppercase">
+        {user?.role || 'User'}
+      </span>
+    </div>
+  </div>
+  <button 
+    onClick={handleLogout}
+    className="w-8 h-8 rounded-full hover:bg-error/10 flex items-center justify-center text-on-surface-variant hover:text-error transition-colors"
+    title="Logout"
+  >
+    <span className="material-symbols-outlined text-[20px]">logout</span>
+  </button>
+</div>
+</aside>
   );
 }

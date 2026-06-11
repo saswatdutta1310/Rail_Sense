@@ -6,21 +6,67 @@ import PlatformGuard from './pages/PlatformGuard';
 import TrackInspector from './pages/TrackInspector';
 import CitizenApp from './pages/CitizenApp';
 import ImpactDashboard from './pages/ImpactDashboard';
+import Login from './pages/Login';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
-    <Router>
-      <Layout>
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/delay" element={<DelayPredictor />} />
-          <Route path="/platform" element={<PlatformGuard />} />
-          <Route path="/track" element={<TrackInspector />} />
-          <Route path="/citizen" element={<CitizenApp />} />
-          <Route path="/impact" element={<ImpactDashboard />} />
+          <Route path="/login" element={<Login />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/delay" element={
+            <ProtectedRoute>
+              <Layout>
+                <DelayPredictor />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/platform" element={
+            <ProtectedRoute>
+              <Layout>
+                <PlatformGuard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/track" element={
+            <ProtectedRoute>
+              <Layout>
+                <TrackInspector />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/impact" element={
+            <ProtectedRoute>
+              <Layout>
+                <ImpactDashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/citizen" element={
+            <ProtectedRoute>
+              <Layout>
+                <CitizenApp />
+              </Layout>
+            </ProtectedRoute>
+          } />
         </Routes>
-      </Layout>
-    </Router>
+      </Router>
+    </AuthProvider>
   );
 }
 

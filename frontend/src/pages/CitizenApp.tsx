@@ -1,188 +1,214 @@
 import { useState } from 'react';
-import { Search, Train, Globe, BellRing, Phone, CheckCircle2 } from 'lucide-react';
-
-const TRANSLATIONS: Record<string, any> = {
-  en: {
-    title: 'RailSense AI Passenger App',
-    searchPlaceholder: 'Enter Train Number...',
-    searchBtn: 'Search Train',
-    statusTitle: 'Live Status',
-    platform: 'Platform',
-    delay: 'Expected Delay',
-    smsTitle: 'Get SMS Alerts',
-    phonePlaceholder: 'Mobile Number',
-    subscribeBtn: 'Subscribe to Free SMS',
-    subscribed: 'Successfully subscribed! You will receive updates via SMS.',
-    onTime: 'On Time'
-  },
-  hi: {
-    title: 'रेलसेंस एआई यात्री ऐप',
-    searchPlaceholder: 'ट्रेन नंबर दर्ज करें...',
-    searchBtn: 'ट्रेन खोजें',
-    statusTitle: 'लाइव स्थिति',
-    platform: 'प्लेटफार्म',
-    delay: 'संभावित देरी',
-    smsTitle: 'एसएमएस अलर्ट प्राप्त करें',
-    phonePlaceholder: 'मोबाइल नंबर',
-    subscribeBtn: 'मुफ़्त एसएमएस की सदस्यता लें',
-    subscribed: 'सफलतापूर्वक सदस्यता ली गई! आपको एसएमएस द्वारा अपडेट प्राप्त होंगे।',
-    onTime: 'समय पर'
-  },
-  bn: {
-    title: 'রেলসেন্স এআই যাত্রী অ্যাপ',
-    searchPlaceholder: 'ট্রেন নম্বর লিখুন...',
-    searchBtn: 'ট্রেন অনুসন্ধান করুন',
-    statusTitle: 'সরাসরি অবস্থা',
-    platform: 'প্ল্যাটফর্ম',
-    delay: 'সম্ভাব্য বিলম্ব',
-    smsTitle: 'এসএমএস সতর্কতা পান',
-    phonePlaceholder: 'মোবাইল নম্বর',
-    subscribeBtn: 'বিনামূল্যে এসএমএস সাবস্ক্রাইব করুন',
-    subscribed: 'সফলভাবে সাবস্ক্রাইব করা হয়েছে! আপনি এসএমএসের মাধ্যমে আপডেট পাবেন।',
-    onTime: 'সময়মতো'
-  }
-};
+import { apiCall } from '../api/client';
 
 export default function CitizenApp() {
-  const [lang, setLang] = useState('en');
-  const [trainNo, setTrainNo] = useState('');
-  const [searched, setSearched] = useState(false);
+  const [trainQuery, setTrainQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  
   const [phone, setPhone] = useState('');
-  const [subscribed, setSubscribed] = useState(false);
-  const [subscribing, setSubscribing] = useState(false);
-
-  const t = TRANSLATIONS[lang];
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [subscribeStatus, setSubscribeStatus] = useState<string | null>(null);
 
   const handleSearch = () => {
-    if (trainNo) setSearched(true);
+    if (!trainQuery.trim()) return;
+    setIsSearching(true);
+    // Simulate network delay for search
+    setTimeout(() => {
+      setIsSearching(false);
+      setHasSearched(true);
+    }, 1200);
   };
 
   const handleSubscribe = async () => {
-    if (!phone) return;
-    setSubscribing(true);
-    try {
-      const res = await fetch('/api/sms/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phone, train_number: trainNo, language: lang })
-      });
-      if (res.ok) {
-        setSubscribed(true);
-      } else {
-        setTimeout(() => setSubscribed(true), 1000); // fallback
-      }
-    } catch {
-      setTimeout(() => setSubscribed(true), 1000); // fallback
+    if (phone.length < 10) {
+      setSubscribeStatus("Error: Invalid phone number");
+      return;
     }
-    setSubscribing(false);
+    
+    setIsSubscribing(true);
+    setSubscribeStatus(null);
+    try {
+      const response = await apiCall<{status: string, message: string}>('/sms/subscribe', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone_number: "+91" + phone,
+          train_number: trainQuery || "12301" // Default for MVP if not searched
+        })
+      });
+      
+      setSubscribeStatus(`Success: ${response.message}`);
+      setPhone('');
+    } catch (err) {
+      setSubscribeStatus("Failed to subscribe to alerts. Network error.");
+    } finally {
+      setIsSubscribing(false);
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto h-full flex flex-col items-center pt-8">
-      
-      {/* Header & Language */}
-      <div className="w-full flex justify-between items-center mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-on-surface">{t.title}</h1>
-        <div className="flex items-center gap-2 bg-surface-container-lowest px-3 py-2 rounded-md shadow-sm border border-outline-variant">
-          <Globe className="w-5 h-5 text-outline" />
-          <select 
-            value={lang} 
-            onChange={(e) => setLang(e.target.value)}
-            className="bg-transparent font-medium text-on-surface outline-none"
-          >
-            <option value="en">English</option>
-            <option value="hi">हिंदी (Hindi)</option>
-            <option value="bn">বাংলা (Bengali)</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Main Search Card */}
-      <div className="w-full bg-surface-container-lowest p-8 rounded-xl shadow-md border border-outline-variant mb-6">
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-3.5 w-6 h-6 text-outline" />
-            <input 
-              type="text" 
-              value={trainNo}
-              onChange={(e) => setTrainNo(e.target.value)}
-              placeholder={t.searchPlaceholder} 
-              className="w-full pl-12 pr-4 py-4 text-lg border-2 border-outline-variant rounded-lg focus:border-primary outline-none transition-colors"
-            />
+    <div className="w-full">
+      <main className="flex-grow flex flex-col">
+        {/* Hero Section */}
+        <section className="relative py-24 px-margin-desktop overflow-hidden bg-on-surface">
+          <div className="absolute inset-0 opacity-10">
+            <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent"></div>
           </div>
-          <button 
-            onClick={handleSearch}
-            className="bg-primary hover:bg-primary-container text-on-primary hover:text-on-primary-container px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap"
-          >
-            {t.searchBtn}
-          </button>
-        </div>
-
-        {searched && (
-          <div className="bg-surface-container-low border border-outline-variant rounded-lg p-6 animate-fade-in">
-            <div className="flex items-start justify-between border-b border-outline-variant pb-4 mb-4">
-              <div>
-                <h3 className="text-sm font-bold text-outline uppercase tracking-wide mb-1">{t.statusTitle}</h3>
-                <div className="text-2xl font-bold text-on-surface flex items-center gap-3">
-                  <Train className="w-6 h-6 text-primary" />
-                  {trainNo} - Howrah Rajdhani Express
-                </div>
+          <div className="max-w-4xl mx-auto relative z-10 text-center">
+            <h1 className="font-headline-lg text-headline-lg text-surface-bright mb-6">Real-time Railway Intelligence</h1>
+            <p className="font-body-lg text-body-lg text-surface-container-high mb-12 opacity-80">Track live train movements with predictive AI analysis and platform updates.</p>
+            {/* Search Bar Container */}
+            <div className="relative max-w-2xl mx-auto">
+              <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+                <span className="material-symbols-outlined text-outline" data-icon="search">search</span>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-outline uppercase tracking-wide mb-1">{t.platform}</div>
-                <div className="text-3xl font-black text-on-surface">9</div>
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center bg-error-container p-4 rounded-lg border border-error">
-               <div>
-                  <div className="text-sm font-bold text-on-error-container uppercase tracking-wide mb-1">{t.delay}</div>
-                  <div className="text-3xl font-black text-on-error-container">47 min</div>
-               </div>
-               <div className="text-sm text-on-error-container font-medium max-w-[150px] text-right">
-                 Due to FOG in Kanpur sector
-               </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* SMS Subscription Card */}
-      {searched && (
-        <div className="w-full bg-inverse-surface p-8 rounded-xl shadow-md text-inverse-on-surface animate-fade-in">
-          <div className="flex items-center gap-3 mb-6">
-            <BellRing className="w-6 h-6 text-primary-fixed" />
-            <h2 className="text-xl font-bold">{t.smsTitle}</h2>
-          </div>
-
-          {subscribed ? (
-            <div className="flex items-center gap-3 bg-white/10 p-4 rounded-lg border border-white/20">
-              <CheckCircle2 className="w-6 h-6 text-success" />
-              <p className="font-medium text-lg">{t.subscribed}</p>
-            </div>
-          ) : (
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="relative flex-1">
-                <Phone className="absolute left-4 top-3.5 w-6 h-6 text-white/50" />
-                <input 
-                  type="text" 
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder={t.phonePlaceholder} 
-                  className="w-full pl-12 pr-4 py-4 text-lg bg-white/10 border border-white/20 rounded-lg focus:border-primary-fixed outline-none text-white placeholder:text-white/50"
-                />
-              </div>
+              <input 
+                className="w-full pl-14 pr-32 py-5 rounded-full border-none ring-1 ring-outline-variant focus:ring-2 focus:ring-primary-fixed-dim bg-surface-container-lowest text-on-surface font-body-md shadow-2xl transition-all" 
+                placeholder="Enter Train Number or Name" 
+                type="text"
+                value={trainQuery}
+                onChange={(e) => setTrainQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              />
               <button 
-                onClick={handleSubscribe}
-                disabled={!phone || subscribing}
-                className="bg-primary-fixed hover:bg-primary-fixed-dim text-on-primary-fixed px-8 py-4 rounded-lg font-bold text-lg transition-colors whitespace-nowrap disabled:opacity-50"
+                onClick={handleSearch}
+                disabled={isSearching}
+                className="absolute right-3 inset-y-3 px-8 bg-primary-container text-on-primary-container rounded-full font-label-md text-label-md hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
               >
-                {subscribing ? '...' : t.subscribeBtn}
+                {isSearching ? 'Searching...' : 'Search'}
               </button>
             </div>
-          )}
-        </div>
-      )}
+            <div className="mt-8 flex justify-center gap-4">
+              <span className="text-label-sm font-label-sm text-surface-container-high opacity-60 uppercase tracking-widest">Recent Searches:</span>
+              <a className="text-label-sm font-label-sm text-primary-fixed-dim hover:underline" href="#" onClick={(e) => { e.preventDefault(); setTrainQuery("12301"); handleSearch(); }}>12301 - Rajdhani</a>
+              <a className="text-label-sm font-label-sm text-primary-fixed-dim hover:underline" href="#" onClick={(e) => { e.preventDefault(); setTrainQuery("12841"); handleSearch(); }}>12841 - Coromandel</a>
+            </div>
+          </div>
+        </section>
+        
+        {/* Result Section */}
+        <section className={`py-16 px-margin-desktop bg-background transition-opacity duration-500 ${hasSearched ? 'opacity-100' : 'opacity-0 pointer-events-none hidden'}`}>
+          <div className="max-w-container-max mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="font-headline-sm text-headline-sm text-on-surface">Search Result</h2>
+              <div className="flex items-center gap-2 text-label-md font-label-md text-outline">
+                <span className="material-symbols-outlined text-sm" data-icon="update">update</span>
+                Last updated: Just now
+              </div>
+            </div>
+            {/* High Fidelity Status Card */}
+            <div className="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="p-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-8 border-b border-outline-variant bg-surface-bright/50">
+                <div className="flex flex-col">
+                  <span className="text-primary font-label-sm font-label-sm uppercase tracking-widest mb-1">Express Train</span>
+                  <h3 className="font-headline-md text-headline-md text-on-surface">{trainQuery || "12301"} - Express</h3>
+                  <div className="flex items-center gap-4 mt-3">
+                    <span className="px-3 py-1 bg-surface-container-high rounded-lg font-label-md text-label-md text-on-surface flex items-center gap-1">
+                      <span className="material-symbols-outlined text-lg" data-icon="train">train</span>
+                      Howrah JN (HWH)
+                    </span>
+                    <span className="material-symbols-outlined text-outline" data-icon="arrow_forward">arrow_forward</span>
+                    <span className="px-3 py-1 bg-surface-container-high rounded-lg font-label-md text-label-md text-on-surface flex items-center gap-1">
+                      <span className="material-symbols-outlined text-lg" data-icon="location_on">location_on</span>
+                      New Delhi (NDLS)
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-start md:items-end gap-3">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-error-container text-on-error-container rounded-lg font-headline-sm text-headline-sm">
+                    <span className="material-symbols-outlined" data-icon="warning">warning</span>
+                    15 min delay predicted
+                  </div>
+                  <p className="font-body-sm text-body-sm text-outline">AI analysis suggests clearing traffic at Mughal Sarai</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-outline-variant">
+                {/* Platform Information */}
+                <div className="p-8 flex items-center gap-6">
+                  <div className="w-14 h-14 bg-surface-container-high rounded-full flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-3xl" data-icon="deck">deck</span>
+                  </div>
+                  <div>
+                    <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Assigned Platform</p>
+                    <p className="font-headline-sm text-headline-sm text-on-surface">Platform 4</p>
+                  </div>
+                </div>
+                {/* Current Status */}
+                <div className="p-8 flex items-center gap-6">
+                  <div className="w-14 h-14 bg-secondary-container rounded-full flex items-center justify-center text-on-secondary-container">
+                    <span className="material-symbols-outlined text-3xl" data-icon="my_location">my_location</span>
+                  </div>
+                  <div>
+                    <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Current Status</p>
+                    <p className="font-headline-sm text-headline-sm text-on-secondary-container flex items-center gap-2">
+                      In Transit
+                      <span className="flex h-3 w-3 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-secondary"></span>
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                {/* Journey Progress */}
+                <div className="p-8 flex items-center gap-6">
+                  <div className="w-14 h-14 bg-tertiary-fixed rounded-full flex items-center justify-center text-on-tertiary-fixed">
+                    <span className="material-symbols-outlined text-3xl" data-icon="speed">speed</span>
+                  </div>
+                  <div>
+                    <p className="font-label-sm text-label-sm text-outline uppercase tracking-wider mb-1">Average Speed</p>
+                    <p className="font-headline-sm text-headline-sm text-on-surface">115 km/h</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        
+        {/* Subscription Container */}
+        <section className="py-16 px-margin-desktop bg-surface-container-low border-t border-outline-variant">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-surface-container-lowest rounded-2xl p-10 shadow-xl flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
+              {/* Subtle background decoration */}
+              <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl"></div>
+              <div className="flex-1">
+                <h2 className="font-headline-md text-headline-md text-on-surface mb-3">Stay Updated</h2>
+                <p className="font-body-md text-body-md text-on-surface-variant">Get instant delay predictions and platform changes sent directly to your phone. Never miss a connection with RailSense AI SMS alerts.</p>
+              </div>
+              <div className="flex-1 w-full space-y-4">
+                <div className="flex flex-col gap-2">
+                  <label className="font-label-md text-label-md text-on-surface">Phone Number</label>
+                  <div className="flex gap-2">
+                    <div className="bg-surface-container-high px-4 py-3 rounded-lg flex items-center font-label-md text-on-surface">
+                      +91
+                    </div>
+                    <input 
+                      className="flex-grow px-4 py-3 bg-surface-container-low border border-outline-variant rounded-lg font-body-md text-on-surface focus:ring-2 focus:ring-primary focus:outline-none" 
+                      placeholder="Enter mobile number" 
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {subscribeStatus && (
+                  <p className={`font-label-sm text-label-sm ${subscribeStatus.startsWith('Error') || subscribeStatus.startsWith('Failed') ? 'text-error' : 'text-primary'}`}>
+                    {subscribeStatus}
+                  </p>
+                )}
+                <button 
+                  onClick={handleSubscribe}
+                  disabled={isSubscribing || phone.length < 10}
+                  className="w-full py-4 bg-primary-container text-on-primary-container hover:brightness-110 active:scale-[0.98] transition-all font-label-md text-label-md rounded-lg shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined" data-icon="sms">sms</span>
+                  {isSubscribing ? 'Subscribing...' : 'Subscribe to SMS Alerts'}
+                </button>
+                <p className="text-center font-label-sm text-label-sm text-outline">Standard messaging rates may apply.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }
