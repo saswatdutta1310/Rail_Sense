@@ -1,0 +1,175 @@
+from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Float, Enum, JSON, Index, UniqueConstraint
+from sqlalchemy.orm import relationship
+import uuid
+import enum
+from datetime import datetime
+from .database import Base
+
+class RoleEnum(str, enum.Enum):
+    public = "public"
+    operator = "operator"
+    admin = "admin"
+    superadmin = "superadmin"
+
+class AlertLevelEnum(str, enum.Enum):
+    green = "green"
+    yellow = "yellow"
+    red = "red"
+    critical = "critical"
+
+class PriorityLevelEnum(str, enum.Enum):
+    low = "low"
+    medium = "medium"
+    high = "high"
+    critical = "critical"
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(Enum(RoleEnum), nullable=False, default=RoleEnum.public)
+    station_id = Column(String, ForeignKey("stations.id"), nullable=True)
+    full_name = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    station = relationship("Station")
+
+class Station(Base):
+    __tablename__ = "stations"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    station_code = Column(String(8), unique=True, nullable=False, index=True)
+    station_name = Column(String(255), nullable=False, index=True)
+    city = Column(String(100), nullable=False, index=True)
+    state = Column(String(100), nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    platform_count = Column(Integer, default=1)
+    has_cctv = Column(Boolean, default=False, index=True)
+    zone = Column(String(10), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    __table_args__ = (
+        Index('idx_station_code', 'station_code'),
+        Index('idx_station_city', 'city'),
+        Index('idx_station_has_cctv', 'has_cctv'),
+    )
+
+class Train(Base):
+    __tablename__ = "trains"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    train_number = Column(String(10), unique=True, nullable=False, index=True)
+    train_name = Column(String(255), nullable=False)
+    name_translations = Column(JSON, nullable=True)
+    origin_station_id = Column(String, ForeignKey("stations.id"), index=True)
+    destination_station_id = Column(String, ForeignKey("stations.id"), index=True)
+    train_type = Column(String(50), nullable=False)
+    typical_duration_min = Column(Integer, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    origin_station = relationship("Station", foreign_keys=[origin_station_id])
+    destination_station = relationship("Station", foreign_keys=[destination_station_id])
+    
+    __table_args__ = (
+        Index('idx_train_number', 'train_number'),
+        Index('idx_train_is_active', 'is_active'),
+    )
+
+class DelayPrediction(Base):
+    __tablename__ = "delay_predictions"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    train_id = Column(String, ForeignKey("trains.id"), nullable=False, index=True)
+    predicted_delay_min = Column(Integer, nullable=False)
+    confidence_pct = Column(Float, nullable=False)
+    root_causes = Column(JSON, nullable=False)
+    weather_input = Column(JSON, nullable=False)
+    signal_status = Column(String(20), nullable=False)
+    congestion_level = Column(Float, nullable=False)
+    model_version = Column(String(20), nullable=False)
+    predicted_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    requested_by_ip = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    train = relationship("Train")
+    
+    __table_args__ = (
+        Index('idx_delay_train_id', 'train_id'),
+        Index('idx_delay_predicted_at', 'predicted_at'),
+    )
+
+class PlatformAnalysis(Base):
+    __tablename__ = "platform_analyses"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    station_id = Column(String, ForeignKey("stations.id"), nullable=False, index=True)
+    platform_number = Column(Integer, nullable=False)
+    operator_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    image_url = Column(String(500), nullable=False)
+    alert_level = Column(Enum(AlertLevelEnum), nullable=False)
+    crowd_density = Column(Float, nullable=False)
+    fall_detected = Column(Boolean, default=False, index=True)
+    person_count = Column(Integer, nullable=False)
+    detection_metadata = Column(JSON, nullable=False)
+    model_version = Column(String(20), nullable=False)
+    analyzed_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    station = relationship("Station")
+    operator = relationship("User")
+    
+    __table_args__ = (
+        Index('idx_platform_station_id', 'station_id'),
+        Index('idx_platform_alert_level', 'alert_level'),
+        Index('idx_platform_fall_detected', 'fall_detected'),
+    )
+
+class TrackAnalysis(Base):
+    __tablename__ = "track_analyses"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    engineer_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    track_segment_ref = Column(String(100), nullable=True, index=True)
+    image_url = Column(String(500), nullable=False)
+    annotated_image_url = Column(String(500), nullable=True)
+    risk_score = Column(Float, nullable=False, index=True)
+    priority_level = Column(Enum(PriorityLevelEnum), nullable=False, index=True)
+    defect_count = Column(Integer, nullable=False, default=0)
+    defects = Column(JSON, nullable=False)
+    model_version = Column(String(20), nullable=False)
+    analyzed_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    engineer = relationship("User")
+    
+    __table_args__ = (
+        Index('idx_track_risk_score', 'risk_score'),
+        Index('idx_track_priority_level', 'priority_level'),
+        Index('idx_track_engineer_id', 'engineer_id'),
+    )
+
+class SmsSubscription(Base):
+    __tablename__ = "sms_subscriptions"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    phone_number = Column(String(15), nullable=False, index=True)
+    train_id = Column(String, ForeignKey("trains.id"), nullable=False, index=True)
+    language_code = Column(String(5), default="en")
+    is_active = Column(Boolean, default=True, index=True)
+    subscribed_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    last_alerted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    train = relationship("Train")
+    
+    __table_args__ = (
+        UniqueConstraint('phone_number', 'train_id', name='uq_phone_train'),
+        Index('idx_sms_phone_number', 'phone_number'),
+        Index('idx_sms_is_active', 'is_active'),
+    )

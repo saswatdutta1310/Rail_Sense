@@ -1,0 +1,35 @@
+# ── General ───────────────────────────────────────────────────────────────────
+.env
+.DS_Store
+*.log
+
+# ── Python ────────────────────────────────────────────────────────────────────
+*.db
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# ── ML model artifacts (large binaries — regenerate with train_model.py) ─────
+# Uncomment the line below if you do NOT want to commit trained models:
+# backend/models/*.pkl
+# Keep ml/data/ generated CSVs out of the repo
+backend/ml/data/*.csv
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+ntes-bridge/node_modules/
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
