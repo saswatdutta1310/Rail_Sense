@@ -13,10 +13,6 @@ export default function TopNav() {
 <span className="material-symbols-outlined text-primary">cloud_done</span>
 <span className="font-label-md text-label-md text-on-surface-variant">Systems Nominal</span>
 </div>
-<button className="bg-primary text-on-primary px-6 py-2 rounded-lg font-label-md text-label-md font-bold hover:bg-primary-container active:opacity-80 transition-all flex items-center gap-2">
-<span className="material-symbols-outlined text-sm">lock_open</span>
-                Admin Login
-            </button>
 </div>
 </header>
   );
