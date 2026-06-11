@@ -756,9 +756,3 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 This project is licensed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ---
-
-<div align="center">
-
-Built with ❤️ for Indian Railways · by [Saswat Dutta](https://github.com/saswatdutta1310)
-
-</div>
