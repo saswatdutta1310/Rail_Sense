@@ -27,24 +27,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
-        try {
-          const userData = await apiCall<User>('/auth/me', {
-            method: 'GET',
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setUser(userData);
-        } catch (error) {
-          console.error('Failed to fetch user', error);
-          setToken(null);
-          localStorage.removeItem('token');
-        }
-      }
+      // Bypass auth entirely
+      setUser({
+        id: '123',
+        email: 'admin@railsense.ai',
+        full_name: 'Admin User',
+        role: 'superadmin',
+        station_id: null
+      });
+      setToken('dummy-token');
       setIsLoading(false);
     };
 
     initAuth();
-  }, [token]);
+  }, []);
 
   const login = async (newToken: string) => {
     localStorage.setItem('token', newToken);

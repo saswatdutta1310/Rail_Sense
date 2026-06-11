@@ -1,62 +1,166 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import uuid
+import requests
+import os
+import json
+from dotenv import load_dotenv
+from datetime import datetime
 
-from app.database import get_db
-from app.models import Train, SmsSubscription
+load_dotenv()
+router = APIRouter()
 
-router = APIRouter(prefix="/api/sms", tags=["SMS Subscription"])
+FAST2SMS_API_KEY = os.getenv("FAST2SMS_API_KEY", "")
 
-class SubscriptionRequest(BaseModel):
-    phone_number: str
-    train_number: str
-    language: str = "en"
+# In-memory store for subscriptions (replace with DB later)
+subscriptions = []
 
-class SubscriptionResponse(BaseModel):
-    subscription_id: str
-    status: str
+
+class SMSSubscribeRequest(BaseModel):
+    phone: str
+    country_code: str = "+91"
+
+
+class SMSAlertRequest(BaseModel):
+    phone: str
     message: str
 
-@router.post("/subscribe", response_model=SubscriptionResponse)
-async def subscribe_sms(req: SubscriptionRequest, db: AsyncSession = Depends(get_db)):
-    if len(req.phone_number) < 10:
-        raise HTTPException(status_code=400, detail="Invalid phone number")
+
+def send_sms_fast2sms(phone: str, message: str) -> dict:
+    """Send SMS via Fast2SMS API"""
+    
+    # Strip country code if present
+    clean_phone = phone.replace("+91", "").replace(" ", "").strip()
+    
+    url = "https://www.fast2sms.com/dev/bulkV2"
+    headers = {
+        "authorization": FAST2SMS_API_KEY,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "route": "q",
+        "message": message,
+        "language": "english",
+        "flash": 0,
+        "numbers": clean_phone
+    }
+    
+    response = requests.post(url, json=payload, headers=headers, timeout=10)
+    return response.json()
+
+
+@router.options("/subscribe")
+async def sms_subscribe_options():
+    return JSONResponse(content={}, status_code=200)
+
+
+@router.post("/subscribe")
+async def subscribe_sms(request: SMSSubscribeRequest):
+    if not FAST2SMS_API_KEY:
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "message": "SMS service not configured. Add FAST2SMS_API_KEY to .env"
+        })
+
+    phone = request.phone.strip()
+    if not phone or len(phone) < 10:
+        return JSONResponse(status_code=400, content={
+            "success": False,
+            "message": "Invalid phone number. Must be 10 digits."
+        })
+
+    # Check for duplicate subscription
+    existing = [s for s in subscriptions if s["phone"] == phone]
+    if existing:
+        return JSONResponse(status_code=200, content={
+            "success": True,
+            "message": f"You are already subscribed to RailSense AI alerts."
+        })
+
+    # Send welcome SMS
+    welcome_msg = (
+        f"Welcome to RailSense AI Alerts! "
+        f"You will now receive real-time train delay predictions "
+        f"and platform alerts for Indian Railways. "
+        f"Reply STOP to unsubscribe."
+    )
+
+    try:
+        sms_result = send_sms_fast2sms(phone, welcome_msg)
         
-    result = await db.execute(select(Train).where(Train.train_number == req.train_number))
-    train = result.scalars().first()
-    
-    # In MVP, if train doesn't exist just accept the subscription to avoid front-end breaking
-    train_id = train.id if train else str(uuid.uuid4()) 
-    
-    sub_id = str(uuid.uuid4())
-    db_record = SmsSubscription(
-        id=sub_id,
-        phone_number=req.phone_number,
-        train_id=train_id,
-        language_code=req.language
-    )
-    db.add(db_record)
-    
-    # Normally we would commit here, but since train_id might be fake, 
-    # we'll only commit if it's a real train to avoid Foreign Key constraint error on MVP
-    if train:
-        await db.commit()
-    
-    from app.services.sms import send_delay_alert
-    
-    # Send a real subscription confirmation via Twilio
-    send_delay_alert(
-        target_phone_number=req.phone_number,
-        train_number=req.train_number,
-        delay_time_minutes=0
-    )
-    
-    print(f"✅ [SMS Dispatch] Subscribed {req.phone_number} to alerts for Train {req.train_number} in {req.language.upper()}")
-    
-    return SubscriptionResponse(
-        subscription_id=sub_id,
-        status="success",
-        message=f"Successfully subscribed {req.phone_number} to alerts."
-    )
+        if sms_result.get("return") == True:
+            # Save subscription
+            subscriptions.append({
+                "phone": phone,
+                "country_code": request.country_code,
+                "subscribed_at": datetime.now().isoformat(),
+                "active": True
+            })
+            return {
+                "success": True,
+                "message": (
+                    f"Successfully subscribed! "
+                    f"A welcome SMS has been sent to "
+                    f"{request.country_code} {phone[-4:].zfill(len(phone))}"
+                ),
+                "subscribed_at": datetime.now().isoformat()
+            }
+        else:
+            error_msg = sms_result.get("message", ["SMS delivery failed"])
+            return JSONResponse(status_code=502, content={
+                "success": False,
+                "message": f"SMS failed: {error_msg[0] if isinstance(error_msg, list) else error_msg}"
+            })
+
+    except requests.Timeout:
+        return JSONResponse(status_code=504, content={
+            "success": False,
+            "message": "SMS service timed out. Please try again."
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "message": f"Subscription failed: {str(e)}"
+        })
+
+
+@router.post("/send-alert")
+async def send_alert(request: SMSAlertRequest):
+    """Send a custom alert SMS — called internally by other modules"""
+    if not FAST2SMS_API_KEY:
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "message": "SMS service not configured"
+        })
+    try:
+        result = send_sms_fast2sms(request.phone, request.message)
+        return {
+            "success": result.get("return") == True,
+            "result": result
+        }
+    except Exception as e:
+        return JSONResponse(status_code=500, content={
+            "success": False,
+            "message": str(e)
+        })
+
+
+@router.get("/subscriptions")
+async def get_subscriptions():
+    """List all active subscriptions"""
+    return {
+        "total": len(subscriptions),
+        "subscriptions": subscriptions
+    }
+
+
+@router.delete("/unsubscribe/{phone}")
+async def unsubscribe(phone: str):
+    global subscriptions
+    before = len(subscriptions)
+    subscriptions = [s for s in subscriptions if s["phone"] != phone]
+    removed = before - len(subscriptions)
+    return {
+        "success": removed > 0,
+        "message": "Unsubscribed successfully" if removed > 0 else "Phone not found"
+    }

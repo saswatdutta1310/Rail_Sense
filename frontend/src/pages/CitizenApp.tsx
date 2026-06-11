@@ -21,26 +21,33 @@ export default function CitizenApp() {
   };
 
   const handleSubscribe = async () => {
-    if (phone.length < 10) {
-      setSubscribeStatus("Error: Invalid phone number");
+    const cleanPhone = phone.replace('+91', '').replace(/\s/g, '').trim();
+    if (cleanPhone.length !== 10) {
+      setSubscribeStatus('Error: Please enter a valid 10-digit mobile number.');
       return;
     }
     
     setIsSubscribing(true);
     setSubscribeStatus(null);
     try {
-      const response = await apiCall<{status: string, message: string}>('/sms/subscribe', {
+      const response = await fetch('http://localhost:8000/api/sms/subscribe', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          phone_number: "+91" + phone,
-          train_number: trainQuery || "12301" // Default for MVP if not searched
+          phone: cleanPhone,
+          country_code: '+91'
         })
       });
       
-      setSubscribeStatus(`Success: ${response.message}`);
-      setPhone('');
+      const data = await response.json();
+      if (data.success) {
+        setSubscribeStatus(`Success: ${data.message}`);
+        setPhone('');
+      } else {
+        setSubscribeStatus(`Error: ${data.message || 'Subscription failed. Please try again.'}`);
+      }
     } catch (err) {
-      setSubscribeStatus("Failed to subscribe to alerts. Network error.");
+      setSubscribeStatus("Error: Failed to subscribe to alerts. Network error.");
     } finally {
       setIsSubscribing(false);
     }

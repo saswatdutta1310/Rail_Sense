@@ -43,35 +43,7 @@ export default function PlatformGuard() {
   };
 
   return (
-    <div className="w-full">
-      <main className="flex flex-col overflow-hidden h-screen">
-        {/* TopNavBar */}
-        <header className="w-full h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-desktop z-40">
-          <div className="flex items-center gap-6">
-            <span className="font-headline-md text-headline-md font-bold text-primary">RailSense AI</span>
-            <div className="relative flex items-center">
-              <span className="material-symbols-outlined absolute left-3 text-outline">search</span>
-              <input className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-1.5 w-64 text-sm focus:ring-2 focus:ring-primary focus:bg-white transition-all" placeholder="Search infrastructure..." type="text"/>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2">
-              <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors cursor-pointer active:opacity-80">
-                <span className="material-symbols-outlined text-on-surface-variant">notifications</span>
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors cursor-pointer active:opacity-80">
-                <span className="material-symbols-outlined text-on-surface-variant">settings</span>
-              </button>
-              <button className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors cursor-pointer active:opacity-80">
-                <span className="material-symbols-outlined text-on-surface-variant">help</span>
-              </button>
-            </div>
-            <div className="w-10 h-10 rounded-full border border-outline-variant p-0.5">
-              <img alt="Engineer Profile" className="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV7NDR0O7bDxloLZ4RwVpC3k7MG6XZYIWz0pw88QQn43RU1_6E8B3H_Xm2WEmNqtlpxJX1cwvbCDzeD1ACbqzpvBpAsxb3JyPk5M9UBkB7_ej4tvvyrX9TfYjkuSPyoGyMKTqQQilby_wY35NT1MK8xTZx__l9qpS3V75chZqMvcKzGTlN0Z1GiRfdajGZoCe2u-HlN8Kd3t0lfcp1qUIObl1VhazVMpxsoYdjWrTFCuAiIy9nqCiV7LAGz6wqLrc04wV-Oz9i9o9H"/>
-            </div>
-          </div>
-        </header>
-        
+    <div className="flex flex-col flex-1">
         {/* Dashboard Canvas */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-gutter bg-background">
           <div className="max-w-container-max mx-auto">
@@ -300,7 +272,6 @@ export default function PlatformGuard() {
             </div>
           </div>
         </div>
-      </main>
     </div>
   );
 }

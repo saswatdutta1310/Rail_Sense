@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import DelayPredictor from './pages/DelayPredictor';
@@ -6,7 +6,6 @@ import PlatformGuard from './pages/PlatformGuard';
 import TrackInspector from './pages/TrackInspector';
 import CitizenApp from './pages/CitizenApp';
 import ImpactDashboard from './pages/ImpactDashboard';
-import Login from './pages/Login';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 
@@ -15,7 +14,7 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
           
           <Route path="/" element={
             <ProtectedRoute>

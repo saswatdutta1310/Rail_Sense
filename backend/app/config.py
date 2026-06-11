@@ -18,7 +18,14 @@ class Settings(BaseSettings):
     OPENWEATHER_API_KEY: str = ""
     OPENWEATHER_API_URL: str = "https://api.openweathermap.org/data/2.5"
 
+    # Anthropic
+    anthropic_api_key: str = ""
+
+    # Gemini
+    gemini_api_key: str = ""
+
     # Twilio SMS
+    fast2sms_api_key: str = ""
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_PHONE_NUMBER: Optional[str] = None
