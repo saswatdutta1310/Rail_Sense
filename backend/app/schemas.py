@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 from .models import AlertLevelEnum, PriorityLevelEnum, RoleEnum
 
@@ -21,6 +21,8 @@ class UserUpdate(BaseModel):
 
 
 class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     email: EmailStr
     full_name: str
@@ -29,9 +31,6 @@ class UserOut(BaseModel):
     is_active: bool
     last_login_at: Optional[datetime]
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class Token(BaseModel):
@@ -59,12 +58,11 @@ class StationBase(BaseModel):
 
 
 class StationOut(StationBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ============ Train ============
@@ -80,12 +78,11 @@ class TrainBase(BaseModel):
 
 
 class TrainOut(TrainBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class TrainSearch(BaseModel):
@@ -106,13 +103,12 @@ class DelayPredictionCreate(BaseModel):
 
 
 class DelayPredictionOut(DelayPredictionCreate):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     predicted_at: datetime
     requested_by_ip: Optional[str]
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class DelayPredictionResponse(BaseModel):
@@ -126,10 +122,11 @@ class DelayPredictionResponse(BaseModel):
 
 
 class CascadeImpact(BaseModel):
-    downstream_train_number: str
-    downstream_train_name: str
-    estimated_delay_propagation: int
-    impact_severity: str
+    train_no: str
+    train_name: str
+    propagated_delay_min: int
+    position: int
+    impact_level: str  # "low" | "medium" | "high"
 
 
 # ============ Platform Analysis ============
@@ -146,13 +143,12 @@ class PlatformAnalysisCreate(BaseModel):
 
 
 class PlatformAnalysisOut(PlatformAnalysisCreate):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     operator_id: Optional[str]
     analyzed_at: datetime
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ============ Track Analysis ============
@@ -168,13 +164,12 @@ class TrackAnalysisCreate(BaseModel):
 
 
 class TrackAnalysisOut(TrackAnalysisCreate):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     engineer_id: Optional[str]
     analyzed_at: datetime
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ============ SMS Subscription ============
@@ -185,25 +180,24 @@ class SmsSubscriptionCreate(BaseModel):
 
 
 class SmsSubscriptionOut(SmsSubscriptionCreate):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     is_active: bool
     subscribed_at: datetime
     last_alerted_at: Optional[datetime]
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 # ============ Impact Dashboard ============
 class ImpactMetrics(BaseModel):
     stations_deployed: int
-    track_km_covered: int
-    delay_saved_min: int
-    passenger_hours_saved_daily: int
-    annual_fuel_savings_crore: float
-    animal_lives_saved_yearly: int
-    incidents_prevented_yearly: int
+    track_km_monitored: int
+    avg_delay_saved_min: int
+    passenger_hours_saved_day: int
+    annual_fuel_savings_cr: float
+    animal_lives_saved_yr: int
+    incidents_prevented_yr: int
 
 
 # ============ Health Check ============

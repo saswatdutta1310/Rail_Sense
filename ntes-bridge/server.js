@@ -12,7 +12,7 @@
  *   GET /health                  — health check
  */
 
-require("dotenv").config({ path: require("path").resolve(__dirname, "../backend/.env") });
+require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
 const express = require("express");
 const { trackTrain, getTrainInfo, liveAtStation } = require("irctc-connect");

@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -64,7 +64,7 @@ async def login(
         )
 
     # Update last login time
-    user.last_login_at = auth.datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     await db.commit()
 
     # Create tokens
@@ -83,22 +83,27 @@ async def login(
 
 @router.post("/refresh", response_model=schemas.Token)
 async def refresh_token(
-    token_data: schemas.TokenRefresh, db: AsyncSession = Depends(database.get_db)
+    token_data: schemas.TokenRefresh,
 ):
-    """Refresh access token using refresh token"""
+    """Refresh access token using a previously issued token"""
     try:
-        # For simplicity in MVP, we'll just create a new access token if the refresh token is valid
-        # In production, implement proper refresh token storage and rotation
+        # Validate the provided refresh token (reuse JWT decode logic)
+        from jose import jwt as _jwt, JWTError
+        from ..config import settings as _s
+        payload = _jwt.decode(token_data.refresh_token, _s.SECRET_KEY, algorithms=[_s.JWT_ALGORITHM])
+        user_id = payload.get("sub")
+        if not user_id:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
         access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = auth.create_access_token(
-            data={"sub": token_data.refresh_token}, expires_delta=access_token_expires
+            data={"sub": user_id}, expires_delta=access_token_expires
         )
         return {
             "access_token": access_token,
             "token_type": "bearer",
             "expires_in": auth.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
@@ -115,6 +120,5 @@ async def get_current_user_info(
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(current_user: models.User = Depends(auth.get_current_user)):
     """Logout (client should discard token)"""
-    # In a stateless JWT system, logout is handled on the client side
-    # by discarding the token. This endpoint is here for API consistency.
+    # Stateless JWT — client discards token
     return None

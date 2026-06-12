@@ -1,277 +1,342 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { apiCall } from '../api/client';
 
+interface Detection {
+  label: string;
+  confidence: number;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+}
+
+interface PlatformAnalysis {
+  analysis_id?: string;
+  crowd_density_score: number;
+  alert_level: string;
+  fall_detected: boolean;
+  detections?: Detection[];
+}
+
+const STATIONS = [
+  { code: 'NDLS', name: 'New Delhi' },
+  { code: 'HWH', name: 'Howrah Junction' },
+  { code: 'CST', name: 'Mumbai CSMT' },
+  { code: 'SBC', name: 'Bengaluru City' },
+  { code: 'MAS', name: 'Chennai Central' },
+  { code: 'PUNE', name: 'Pune Station' },
+];
+
+const CAMERAS = [
+  { id: 'CAM-01', location: 'Main Entry Gate' },
+  { id: 'CAM-02', location: 'Platform Edge North' },
+  { id: 'CAM-03', location: 'Platform Edge South' },
+  { id: 'CAM-04', location: 'Staircase A' },
+  { id: 'CAM-05', location: 'Waiting Hall' },
+  { id: 'CAM-06', location: 'Ticket Counter' },
+];
+
+function parseAlertLevel(raw: string): 'normal' | 'yellow' | 'red' | 'critical' {
+  const r = raw.toLowerCase();
+  if (r.includes('critical') || r.includes('high risk')) return 'critical';
+  if (r.includes('red') || r.includes('elevated')) return 'red';
+  if (r.includes('yellow')) return 'yellow';
+  return 'normal';
+}
+
 export default function PlatformGuard() {
-  const [station, setStation] = useState('New Delhi');
-  const [platform, setPlatform] = useState('Platform 4');
-  
+  const [station, setStation] = useState('NDLS');
+  const [platform, setPlatform] = useState('1');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [density, setDensity] = useState(6.2);
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [density, setDensity] = useState<number | null>(null);
   const [fallDetected, setFallDetected] = useState(false);
-  const [personCount, setPersonCount] = useState(1245);
-  const [alertLevel, setAlertLevel] = useState('critical');
+  const [personCount, setPersonCount] = useState<number | null>(null);
+  const [alertLevel, setAlertLevel] = useState<'normal' | 'yellow' | 'red' | 'critical'>('normal');
+  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [selectedCam, setSelectedCam] = useState<string | null>(null);
+  const [history, setHistory] = useState<Array<{ time: string; density: number; alert: string }>>([]);
+  const [hasResult, setHasResult] = useState(false);
+  const [error, setError] = useState('');
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleAnalyze = async () => {
+  const runAnalysis = async () => {
     setIsAnalyzing(true);
+    setError('');
     try {
-      // Create a dummy file for the MVP vision endpoint
       const formData = new FormData();
-      const blob = new Blob(["dummy content"], { type: "image/jpeg" });
-      formData.append("file", blob, "camera_feed.jpg");
+      // Generate a tiny canvas image as the camera feed placeholder
+      const canvas = document.createElement('canvas');
+      canvas.width = 64; canvas.height = 64;
+      await new Promise<void>(resolve => canvas.toBlob(blob => {
+        formData.append('file', blob!, 'camera_feed.jpg');
+        resolve();
+      }, 'image/jpeg'));
 
-      const response = await apiCall<Record<string, unknown>>('/vision/platform', {
-        method: 'POST',
-        body: formData,
-      }, {
-        // Mock fallback if auth fails
-        crowd_density_score: Number((Math.random() * 5 + 3).toFixed(1)),
-        alert_level: Math.random() > 0.7 ? 'critical' : 'normal',
-        fall_detected: Math.random() > 0.8,
-        detections: new Array(Math.floor(Math.random() * 50 + 20)).fill({ label: 'person' })
-      });
-      
+      const response = await apiCall<PlatformAnalysis>(
+        '/vision/platform',
+        { method: 'POST', body: formData },
+        {
+          crowd_density_score: parseFloat((Math.random() * 6 + 2).toFixed(1)),
+          alert_level: 'normal',
+          fall_detected: Math.random() > 0.85,
+          detections: Array.from({ length: Math.floor(Math.random() * 60 + 10) }, () => ({ label: 'person', confidence: 0.9 })),
+        }
+      );
+
+      const level = parseAlertLevel(response.alert_level);
+      const persons = response.detections?.filter(d => d.label === 'person' || d.label === 'fallen_person').length ?? 0;
+      const estimatedCount = persons > 0 ? persons * 20 : Math.floor(response.crowd_density_score * 180);
+
       setDensity(response.crowd_density_score);
-      setAlertLevel(response.alert_level);
+      setAlertLevel(level);
       setFallDetected(response.fall_detected);
-      setPersonCount(response.detections?.length * 45 || Math.floor(Math.random() * 2000 + 500));
-      
-    } catch (e) {
-      console.error(e);
+      setPersonCount(estimatedCount);
+      setAnalysisId(response.analysis_id ?? null);
+      setHasResult(true);
+
+      // Keep last 10 readings for the mini chart
+      setHistory(prev => {
+        const entry = {
+          time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          density: response.crowd_density_score,
+          alert: level,
+        };
+        return [...prev.slice(-9), entry];
+      });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Analysis failed');
     } finally {
       setIsAnalyzing(false);
     }
   };
 
+  // Auto-refresh every 15 seconds when enabled
+  useEffect(() => {
+    if (autoRefresh) {
+      intervalRef.current = setInterval(runAnalysis, 15000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [autoRefresh, station, platform]);
+
+  const alertConfig = {
+    normal: { bg: 'bg-green-500', label: 'NORMAL', icon: 'check_circle', text: 'Normal crowd levels' },
+    yellow: { bg: 'bg-amber-400', label: 'MODERATE', icon: 'warning', text: 'Elevated crowd density' },
+    red: { bg: 'bg-red-500', label: 'HIGH RISK', icon: 'report', text: 'High crowd density' },
+    critical: { bg: 'bg-red-700', label: 'CRITICAL', icon: 'emergency', text: 'Immediate intervention required' },
+  }[alertLevel];
+
+  const stationName = STATIONS.find(s => s.code === station)?.name ?? station;
+
   return (
-    <div className="flex flex-col flex-1">
-        {/* Dashboard Canvas */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-gutter bg-background">
-          <div className="max-w-container-max mx-auto">
-            <header className="mb-8">
-              <div className="flex justify-between items-end">
-                <div>
-                  <h2 className="font-headline-lg text-headline-lg text-on-surface">PlatformGuard Dashboard</h2>
-                  <p className="text-on-surface-variant mt-1">Real-time computer vision monitoring and crowd flow intelligence.</p>
-                </div>
-                <div className="flex gap-2 bg-surface-container p-1 rounded-lg">
-                  <button className="px-4 py-2 bg-white rounded-md shadow-sm font-label-md text-primary">Overview</button>
-                  <button className="px-4 py-2 text-on-surface-variant font-label-md hover:text-on-surface">History</button>
-                </div>
-              </div>
-            </header>
-            
-            <div className="grid grid-cols-12 gap-8">
-              {/* Left Panel: Analysis Configuration */}
-              <section className="col-span-12 lg:col-span-4 space-y-6">
-                <div className="bg-white rounded-xl border border-outline-variant shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] overflow-hidden">
-                  <div className="p-4 border-b border-outline-variant bg-surface-container-low">
-                    <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined">tune</span>
-                      Analysis Configuration
-                    </h3>
-                  </div>
-                  <div className="p-6 space-y-6">
-                    {/* Drag & Drop Zone */}
-                    <div>
-                      <label className="block font-label-md text-label-md text-secondary mb-3">Live Video Source</label>
-                      <div className="border-2 border-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-surface hover:border-primary hover:bg-surface-container-low transition-all group cursor-pointer">
-                        <div className="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <span className="material-symbols-outlined text-primary text-3xl">upload_file</span>
-                        </div>
-                        <p className="font-label-md text-label-md text-on-surface">Upload Feed or Drop File</p>
-                        <p className="text-xs text-on-surface-variant">MP4, AVI, or Live Stream URL</p>
-                      </div>
-                    </div>
-                    {/* Station Select */}
-                    <div>
-                      <label className="block font-label-md text-label-md text-secondary mb-2">Select Station</label>
-                      <div className="relative">
-                        <select 
-                          value={station}
-                          onChange={(e) => setStation(e.target.value)}
-                          className="w-full h-12 bg-surface border border-outline-variant rounded-lg px-4 font-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
-                        >
-                          <option>Mumbai CST</option>
-                          <option>New Delhi</option>
-                          <option>Howrah</option>
-                          <option>Chennai Central</option>
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
-                      </div>
-                    </div>
-                    {/* Platform Number */}
-                    <div>
-                      <label className="block font-label-md text-label-md text-secondary mb-2">Platform Number</label>
-                      <div className="relative">
-                        <select 
-                          value={platform}
-                          onChange={(e) => setPlatform(e.target.value)}
-                          className="w-full h-12 bg-surface border border-outline-variant rounded-lg px-4 font-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
-                        >
-                          <option>Platform 1</option>
-                          <option>Platform 4</option>
-                          <option>Platform 12</option>
-                          <option>Platform 18</option>
-                        </select>
-                        <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-outline">expand_more</span>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={handleAnalyze}
-                      disabled={isAnalyzing}
-                      className="w-full bg-primary-container py-4 rounded-xl text-white font-headline-sm flex items-center justify-center gap-3 hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary-container/20 disabled:opacity-50"
-                    >
-                      <span className={`material-symbols-outlined ${isAnalyzing ? 'animate-pulse' : ''}`} style={{ fontVariationSettings: "'FILL' 1" }}>analytics</span>
-                      {isAnalyzing ? 'Analyzing Feed...' : 'Analyze Feed'}
-                    </button>
-                  </div>
-                </div>
-                {/* Secondary Context Card */}
-                <div className="bg-inverse-surface rounded-xl p-6 text-white overflow-hidden relative">
-                  <div className="relative z-10">
-                    <h4 className="font-headline-sm text-headline-sm mb-2">Network Load</h4>
-                    <p className="text-sm opacity-80 mb-6">Current system utilization across the main intelligence cluster.</p>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span>AI Inference</span>
-                        <span className="text-primary-fixed-dim">74%</span>
-                      </div>
-                      <div className="w-full bg-white/10 h-1.5 rounded-full">
-                        <div className="bg-primary-fixed-dim h-full rounded-full" style={{ width: "74%" }}></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="absolute -right-4 -bottom-4 opacity-10">
-                    <span className="material-symbols-outlined text-[120px]">hub</span>
-                  </div>
-                </div>
-              </section>
-              
-              {/* Right Panel: Live Intelligence */}
-              <section className="col-span-12 lg:col-span-8 space-y-6">
-                <div className="bg-white rounded-xl border border-outline-variant shadow-[0_4px_20px_0_rgba(0,0,0,0.04)] flex flex-col h-full overflow-hidden">
-                  <div className="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
-                    <h3 className="font-headline-sm text-headline-sm text-primary flex items-center gap-2">
-                      <span className="material-symbols-outlined">live_tv</span>
-                      Live Platform Analysis
-                    </h3>
-                    {alertLevel === 'critical' ? (
-                      <div className="flex items-center gap-2 bg-error-container text-on-error-container px-3 py-1 rounded-full font-label-md text-xs border border-error/20">
-                        <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
-                        Red - High Risk
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full font-label-md text-xs border border-green-300">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        Nominal Flow
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-0 bg-on-background relative group">
-                    <img alt="Platform Analysis Feed" className="w-full aspect-video object-cover opacity-90 transition-opacity group-hover:opacity-100" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAgrUQEFw_4Iv83Ekf3TNn2PyUyZndDcWRv4Oz7vpcHvDHQiHKRmxJmWk1zS5DFiTvZQgDwb1FGY5PVG2hEP2akP7iNo-Fu7ulyOSuGFw7OEXuF25WRYBQ6-BA3WtPVl2vP_sZOPgFfIq6QVnm5VLm8QD3HStPDKMFOEjo_-hu5GiqpWlmW2clJP9xzinBD7PDw3UXI1xWMPLF8K8izV36nib-8RWL3wHUbnFC-haz1k3d5zEyeyKEY46FztsHyhwUXEHEL1Mlasnuh"/>
-                    {/* HUD Overlay elements */}
-                    <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between border-4 border-primary/20">
-                      <div className="flex justify-between items-start">
-                        <div className="bg-on-background/60 backdrop-blur-md px-3 py-1 rounded border border-white/20 text-white text-xs font-mono uppercase">
-                          CAM_04_{station.substring(0, 3)}_{platform.replace(' ', '_')}
-                        </div>
-                        <div className="bg-on-background/60 backdrop-blur-md px-3 py-1 rounded border border-white/20 text-white text-xs font-mono">
-                          FPS: {isAnalyzing ? '22' : '60'} | LATENCY: {isAnalyzing ? '45' : '24'}ms
-                        </div>
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="bg-primary/20 backdrop-blur-lg p-3 rounded-lg border border-primary/40 flex items-center gap-3 text-white">
-                          <span className="material-symbols-outlined text-primary-fixed-dim">group</span>
-                          <div>
-                            <div className="text-[10px] uppercase tracking-wider opacity-60">Estimated Headcount</div>
-                            <div className="text-xl font-bold">{personCount.toLocaleString()}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-gutter">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Stat Card 1 */}
-                      <div className={`p-4 rounded-xl border ${density > 6 ? 'border-error/50 bg-error/5' : 'border-outline-variant bg-surface'}`}>
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="material-symbols-outlined text-secondary">density_medium</span>
-                          <span className="font-label-md text-secondary">Crowd Density</span>
-                        </div>
-                        <div className="flex items-end gap-2">
-                          <span className="text-3xl font-bold text-on-surface">{density.toFixed(1)}</span>
-                          <span className="text-sm text-on-surface-variant pb-1">persons/m²</span>
-                        </div>
-                        {density > 6 ? (
-                          <div className="mt-3 flex items-center gap-1 text-xs text-error font-medium">
-                            <span className="material-symbols-outlined text-sm">trending_up</span>
-                            <span>Above safety threshold</span>
-                          </div>
-                        ) : (
-                          <div className="mt-3 flex items-center gap-1 text-xs text-green-600 font-medium">
-                            <span className="material-symbols-outlined text-sm">trending_flat</span>
-                            <span>Within normal limits</span>
-                          </div>
-                        )}
-                      </div>
-                      {/* Stat Card 2 */}
-                      <div className={`p-4 rounded-xl border ${fallDetected ? 'border-error/50 bg-error/5' : 'border-outline-variant bg-surface'}`}>
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="material-symbols-outlined text-secondary">personal_injury</span>
-                          <span className="font-label-md text-secondary">Safety Events</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-3xl font-bold text-on-surface">{fallDetected ? 'Yes' : 'No'}</span>
-                          {fallDetected ? (
-                            <div className="w-8 h-8 rounded-full bg-error-container flex items-center justify-center">
-                              <span className="material-symbols-outlined text-error" style={{ fontVariationSettings: "'FILL' 1" }}>warning</span>
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                              <span className="material-symbols-outlined text-green-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                            </div>
-                          )}
-                        </div>
-                        <p className="mt-3 text-xs text-on-surface-variant">Fall Detected: {fallDetected ? 'Yes (Platform Edge)' : 'No'}</p>
-                      </div>
-                      {/* Stat Card 3 */}
-                      <div className="p-4 rounded-xl border border-outline-variant bg-surface">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="material-symbols-outlined text-secondary">speed</span>
-                          <span className="font-label-md text-secondary">Flow Rate</span>
-                        </div>
-                        <div className="flex items-end gap-2">
-                          <span className="text-3xl font-bold text-on-surface">{Math.floor(60 - density * 2.5)}</span>
-                          <span className="text-sm text-on-surface-variant pb-1">px/min</span>
-                        </div>
-                        <div className="mt-3 flex items-center gap-1 text-xs text-secondary font-medium">
-                          <span className="material-symbols-outlined text-sm">info</span>
-                          <span>{density > 6 ? 'Restricted through-put' : 'Nominal through-put'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {alertLevel === 'critical' && (
-                      <div className="mt-8 p-6 bg-error-container rounded-xl border border-error/20 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-lg bg-white flex items-center justify-center text-error shadow-sm animate-pulse">
-                            <span className="material-symbols-outlined">shield_with_heart</span>
-                          </div>
-                          <div>
-                            <h5 className="font-headline-sm text-headline-sm text-on-error-container">Auto-Escalation Triggered</h5>
-                            <p className="text-sm text-on-error-container opacity-80">Ground security notified. RPF dispatched to Platform 4.</p>
-                          </div>
-                        </div>
-                        <button className="px-6 py-2 bg-error text-white rounded-lg font-label-md hover:bg-error/90 transition-all shadow-md">
-                          Acknowledge
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </section>
+    <div className="flex-1 bg-[#FAF8F4] p-6">
+      {/* Header */}
+      <div className="mb-5 flex justify-between items-start flex-wrap gap-3">
+        <div>
+          <span className="badge-orange mb-2 inline-block">Computer Vision</span>
+          <h1 className="text-2xl font-black text-gray-900">Platform <span className="text-[#F97316]">Guard</span></h1>
+          <p className="text-sm text-gray-500 mt-1">YOLOv5 crowd monitoring · Fall detection · Real-time alerts</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="flex items-center gap-2 text-sm font-semibold text-gray-600 cursor-pointer select-none">
+            <div className="relative">
+              <input type="checkbox" className="sr-only peer" checked={autoRefresh} onChange={e => setAutoRefresh(e.target.checked)} />
+              <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-[#F97316] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+            </div>
+            Auto-refresh
+          </label>
+          <button
+            onClick={runAnalysis}
+            disabled={isAnalyzing}
+            className="orange-btn flex items-center gap-2 text-sm"
+          >
+            <span className={`material-symbols-outlined text-[18px] ${isAnalyzing ? 'animate-spin' : ''}`}>radar</span>
+            {isAnalyzing ? 'Analyzing…' : 'Run Analysis'}
+          </button>
+        </div>
+      </div>
+
+      {/* Station / platform selector */}
+      <div className="card p-4 mb-5 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Station</label>
+          <select value={station} onChange={e => setStation(e.target.value)} className="input-field text-sm">
+            {STATIONS.map(s => <option key={s.code} value={s.code}>{s.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">Platform</label>
+          <select value={platform} onChange={e => setPlatform(e.target.value)} className="input-field text-sm">
+            {[1,2,3,4,5,6,7,8].map(p => <option key={p} value={p}>Platform {p}</option>)}
+          </select>
+        </div>
+        <div className="col-span-2 flex items-end">
+          {hasResult && analysisId && (
+            <p className="text-xs text-gray-400 font-mono">Analysis ID: {analysisId.slice(0, 16)}…</p>
+          )}
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs flex items-center gap-2">
+          <span className="material-symbols-outlined text-sm">warning</span>
+          {error} — showing simulated data.
+        </div>
+      )}
+
+      <div className="grid grid-cols-3 gap-5 mb-5">
+        {/* Camera grid */}
+        <div className="col-span-2 card p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-gray-900">Live Camera Feeds — {stationName} Plt {platform}</h3>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+              <span className="text-xs font-semibold text-red-500">LIVE</span>
             </div>
           </div>
+          <div className="grid grid-cols-3 gap-3">
+            {CAMERAS.map((cam, idx) => {
+              const isMaintenance = idx === 3;
+              const hasAlert = hasResult && (idx === 1 ? fallDetected : alertLevel === 'critical' && idx % 2 === 0);
+              return (
+                <div
+                  key={cam.id}
+                  className={`relative rounded-xl overflow-hidden bg-gray-900 aspect-video cursor-pointer transition-all
+                    ${selectedCam === cam.id ? 'ring-2 ring-[#F97316]' : 'hover:ring-2 hover:ring-[#F97316]/50'}
+                    ${hasAlert ? 'ring-2 ring-red-500' : ''}`}
+                  onClick={() => setSelectedCam(selectedCam === cam.id ? null : cam.id)}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-gray-600 text-[30px]">videocam</span>
+                  </div>
+                  {/* Simulated scanline effect */}
+                  {!isMaintenance && (
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                      background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)'
+                    }}></div>
+                  )}
+                  {isMaintenance && (
+                    <div className="absolute inset-0 bg-gray-800/80 flex flex-col items-center justify-center">
+                      <span className="material-symbols-outlined text-gray-400 text-[20px]">construction</span>
+                      <span className="text-[10px] font-bold text-gray-400 uppercase mt-1">Maintenance</span>
+                    </div>
+                  )}
+                  {hasAlert && !isMaintenance && (
+                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-500 animate-pulse flex items-center justify-center">
+                      <span className="text-white text-[9px] font-black">!</span>
+                    </div>
+                  )}
+                  {/* Crowd density overlay when result available */}
+                  {hasResult && !isMaintenance && density !== null && (
+                    <div className="absolute top-1.5 left-1.5">
+                      <span className="text-[9px] font-bold text-white/80 bg-black/40 rounded px-1">{density.toFixed(1)} p/m²</span>
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+                    <p className="text-white text-[9px] font-bold">{cam.id}</p>
+                    <p className="text-white/60 text-[8px]">{cam.location}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Right column */}
+        <div className="flex flex-col gap-4">
+          {/* Alert status */}
+          <div className={`${alertConfig.bg} rounded-2xl p-5 text-white transition-all`}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="material-symbols-outlined text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>{alertConfig.icon}</span>
+              <span className="font-black text-sm uppercase tracking-widest">{alertConfig.label}</span>
+            </div>
+            {density !== null ? (
+              <>
+                <p className="font-black text-4xl mb-1">{density.toFixed(1)}<span className="text-xl font-medium"> p/m²</span></p>
+                <p className="text-white/70 text-xs">{alertConfig.text}</p>
+                {personCount !== null && (
+                  <p className="text-white/80 text-xs mt-1">~{personCount.toLocaleString()} estimated persons</p>
+                )}
+              </>
+            ) : (
+              <p className="text-white/70 text-sm mt-2">Run an analysis to see live density metrics.</p>
+            )}
+            {fallDetected && (
+              <div className="mt-3 bg-white/20 rounded-lg p-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px] animate-pulse" style={{ fontVariationSettings: "'FILL' 1" }}>personal_injury</span>
+                <span className="text-xs font-bold">Fall Event Detected — RPF Notified</span>
+              </div>
+            )}
+          </div>
+
+          {/* Live metrics */}
+          <div className="card p-4">
+            <p className="text-xs text-gray-500 font-semibold mb-3 uppercase tracking-wide">Live Metrics</p>
+            {[
+              { label: 'Person Count', value: personCount !== null ? personCount.toLocaleString() : '—', icon: 'people' },
+              { label: 'Platform', value: `Platform ${platform}`, icon: 'train' },
+              { label: 'Station', value: stationName, icon: 'location_on' },
+              { label: 'Alert Level', value: alertConfig.label, icon: 'warning' },
+            ].map(m => (
+              <div key={m.label} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                <span className="material-symbols-outlined text-[#F97316] text-[16px]">{m.icon}</span>
+                <div>
+                  <p className="text-[10px] text-gray-400">{m.label}</p>
+                  <p className="text-sm font-bold text-gray-800">{m.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Alert thresholds legend */}
+          <div className="card p-4">
+            <p className="text-xs text-gray-500 font-semibold mb-2 uppercase tracking-wide">Alert Thresholds</p>
+            {[
+              { label: 'Normal', range: '0–3 p/m²', color: 'bg-green-500' },
+              { label: 'Yellow', range: '3–6 p/m²', color: 'bg-amber-400' },
+              { label: 'Red', range: '6–9 p/m²', color: 'bg-red-400' },
+              { label: 'Critical', range: '>9 p/m²', color: 'bg-red-700' },
+            ].map(t => (
+              <div key={t.label} className="flex items-center gap-2 py-1">
+                <div className={`w-3 h-3 rounded-sm ${t.color}`}></div>
+                <span className="text-xs text-gray-600">{t.label}</span>
+                <span className="ml-auto text-[10px] text-gray-400 font-mono">{t.range}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* History mini-chart */}
+      {history.length > 0 && (
+        <div className="card p-5">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h3 className="font-bold text-gray-900">Crowd Density History</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Last {history.length} readings — auto-updates on analysis</p>
+            </div>
+            <button onClick={() => setHistory([])} className="text-xs text-gray-400 hover:text-red-500 transition-colors">Clear</button>
+          </div>
+          <div className="flex items-end gap-2 h-24">
+            {history.map((h, i) => {
+              const heightPct = Math.min((h.density / 10) * 100, 100);
+              const barColor = h.alert === 'critical' ? '#DC2626' : h.alert === 'red' ? '#EF4444' : h.alert === 'yellow' ? '#F59E0B' : '#22C55E';
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                  <div className="w-full rounded-t-sm relative" style={{ height: `${heightPct}%`, background: barColor, minHeight: '4px' }}>
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[9px] rounded px-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      {h.density.toFixed(1)} p/m²
+                    </div>
+                  </div>
+                  <span className="text-[8px] text-gray-400 rotate-45 origin-left">{h.time.slice(0, 5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

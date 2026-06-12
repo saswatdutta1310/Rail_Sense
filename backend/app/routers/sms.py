@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 
-import requests
+import httpx
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -45,9 +45,8 @@ class SMSAlertRequest(BaseModel):
     message: str
 
 
-def send_sms_fast2sms(phone: str, message: str) -> dict:
-    """Send SMS via Fast2SMS API"""
-
+async def send_sms_fast2sms(phone: str, message: str) -> dict:
+    """Send SMS via Fast2SMS API (async)"""
     # Strip country code if present
     clean_phone = phone.replace("+91", "").replace(" ", "").strip()
 
@@ -61,7 +60,8 @@ def send_sms_fast2sms(phone: str, message: str) -> dict:
         "numbers": clean_phone,
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=10)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
     return response.json()
 
 
@@ -111,7 +111,7 @@ async def subscribe_sms(request: SMSSubscribeRequest):
     )
 
     try:
-        sms_result = send_sms_fast2sms(phone, welcome_msg)
+        sms_result = await send_sms_fast2sms(phone, welcome_msg)
 
         if sms_result.get("return") == True:
             # Save subscription
@@ -142,7 +142,7 @@ async def subscribe_sms(request: SMSSubscribeRequest):
                 },
             )
 
-    except requests.Timeout:
+    except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
             content={
@@ -166,7 +166,7 @@ async def send_alert(request: SMSAlertRequest):
             content={"success": False, "message": "SMS service not configured"},
         )
     try:
-        result = send_sms_fast2sms(request.phone, request.message)
+        result = await send_sms_fast2sms(request.phone, request.message)
         return {"success": result.get("return") == True, "result": result}
     except Exception as e:
         return JSONResponse(
