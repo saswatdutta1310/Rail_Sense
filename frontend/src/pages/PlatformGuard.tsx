@@ -200,41 +200,190 @@ export default function PlatformGuard() {
             {CAMERAS.map((cam, idx) => {
               const isMaintenance = idx === 3;
               const hasAlert = hasResult && (idx === 1 ? fallDetected : alertLevel === 'critical' && idx % 2 === 0);
+
+              // CCTV scene SVGs — each camera shows a different view
+              const cctvScenes = [
+                // CAM-01: Main Entry Gate — crowd entering
+                `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+                  <defs><radialGradient id="g0" cx="50%" cy="40%" r="60%"><stop offset="0%" stop-color="#2d4a3e"/><stop offset="100%" stop-color="#0a1a12"/></radialGradient></defs>
+                  <rect width="160" height="90" fill="url(#g0)"/>
+                  <rect x="0" y="60" width="160" height="30" fill="#1a2e1e" opacity="0.8"/>
+                  <!-- gate arch -->
+                  <path d="M55 60 Q80 30 105 60" stroke="#4a7c59" stroke-width="3" fill="none"/>
+                  <rect x="54" y="45" width="4" height="15" fill="#4a7c59"/>
+                  <rect x="102" y="45" width="4" height="15" fill="#4a7c59"/>
+                  <!-- people silhouettes -->
+                  <ellipse cx="70" cy="57" rx="4" ry="6" fill="#1a3d2b"/>
+                  <circle cx="70" cy="49" r="3" fill="#2d5a3d"/>
+                  <ellipse cx="85" cy="56" rx="4" ry="7" fill="#234d35"/>
+                  <circle cx="85" cy="48" r="3.5" fill="#2d5a3d"/>
+                  <ellipse cx="95" cy="58" rx="3" ry="5" fill="#1a3d2b"/>
+                  <circle cx="95" cy="51" r="2.5" fill="#2d5a3d"/>
+                  <!-- timestamp -->
+                  <rect x="2" y="2" width="56" height="8" fill="black" opacity="0.5" rx="1"/>
+                  <text x="4" y="9" font-family="monospace" font-size="5.5" fill="#00ff41">CAM-01 LIVE</text>
+                  <!-- scanlines -->
+                  <rect width="160" height="1" y="15" fill="white" opacity="0.03"/>
+                  <rect width="160" height="1" y="30" fill="white" opacity="0.03"/>
+                  <rect width="160" height="1" y="45" fill="white" opacity="0.03"/>
+                  <rect width="160" height="1" y="60" fill="white" opacity="0.03"/>
+                  <rect width="160" height="1" y="75" fill="white" opacity="0.03"/>
+                </svg>`,
+                // CAM-02: Platform Edge North — train visible
+                `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+                  <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a2535"/><stop offset="100%" stop-color="#0d151f"/></linearGradient></defs>
+                  <rect width="160" height="90" fill="url(#g1)"/>
+                  <!-- platform floor -->
+                  <rect x="0" y="65" width="160" height="25" fill="#1e2d40"/>
+                  <!-- train side -->
+                  <rect x="0" y="30" width="160" height="35" fill="#243650" rx="3"/>
+                  <rect x="8" y="35" width="22" height="16" fill="#1a4a6e" rx="2"/>
+                  <rect x="36" y="35" width="22" height="16" fill="#1a4a6e" rx="2"/>
+                  <rect x="64" y="35" width="22" height="16" fill="#2a5a7e" rx="2"/>
+                  <rect x="92" y="35" width="22" height="16" fill="#1a4a6e" rx="2"/>
+                  <rect x="120" y="35" width="22" height="16" fill="#1a4a6e" rx="2"/>
+                  <!-- yellow platform line -->
+                  <rect x="0" y="63" width="160" height="2" fill="#f0b429" opacity="0.8"/>
+                  <!-- people on platform -->
+                  <ellipse cx="40" cy="62" rx="3" ry="5" fill="#1e3a52"/>
+                  <circle cx="40" cy="55" r="2.5" fill="#2a4a62"/>
+                  <ellipse cx="100" cy="61" rx="3" ry="5" fill="#1e3a52"/>
+                  <circle cx="100" cy="54" r="2.5" fill="#2a4a62"/>
+                  <text x="4" y="9" font-family="monospace" font-size="5.5" fill="#00ff41">CAM-02 LIVE</text>
+                  <rect x="2" y="2" width="56" height="8" fill="black" opacity="0.5" rx="1"/>
+                </svg>`,
+                // CAM-03: Platform Edge South — wide view
+                `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+                  <defs><linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#1d1f2b"/><stop offset="100%" stop-color="#12141e"/></linearGradient></defs>
+                  <rect width="160" height="90" fill="url(#g2)"/>
+                  <!-- overhead canopy perspective -->
+                  <path d="M0 20 L160 35" stroke="#2a2d3e" stroke-width="1.5"/>
+                  <path d="M0 25 L160 40" stroke="#2a2d3e" stroke-width="1"/>
+                  <!-- columns -->
+                  <rect x="20" y="20" width="3" height="45" fill="#2a2d3e"/>
+                  <rect x="60" y="22" width="3" height="43" fill="#2a2d3e"/>
+                  <rect x="100" y="24" width="3" height="41" fill="#2a2d3e"/>
+                  <rect x="140" y="26" width="3" height="39" fill="#2a2d3e"/>
+                  <!-- platform -->
+                  <rect x="0" y="65" width="160" height="25" fill="#1a1c28"/>
+                  <rect x="0" y="63" width="160" height="2" fill="#f0b429" opacity="0.6"/>
+                  <!-- track lines -->
+                  <line x1="0" y1="80" x2="160" y2="80" stroke="#2d2f40" stroke-width="2"/>
+                  <line x1="0" y1="85" x2="160" y2="85" stroke="#2d2f40" stroke-width="2"/>
+                  <!-- people -->
+                  <ellipse cx="55" cy="62" rx="4" ry="6" fill="#22253a"/>
+                  <circle cx="55" cy="54" r="3" fill="#2c3050"/>
+                  <ellipse cx="120" cy="61" rx="3.5" ry="5" fill="#22253a"/>
+                  <circle cx="120" cy="54" r="2.5" fill="#2c3050"/>
+                  <rect x="2" y="2" width="56" height="8" fill="black" opacity="0.5" rx="1"/>
+                  <text x="4" y="9" font-family="monospace" font-size="5.5" fill="#00ff41">CAM-03 LIVE</text>
+                </svg>`,
+                // CAM-04: MAINTENANCE
+                ``,
+                // CAM-05: Waiting Hall — benches & people
+                `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+                  <defs><linearGradient id="g4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1e1a2e"/><stop offset="100%" stop-color="#130f1e"/></linearGradient></defs>
+                  <rect width="160" height="90" fill="url(#g4)"/>
+                  <!-- ceiling light -->
+                  <ellipse cx="80" cy="5" rx="30" ry="8" fill="#3a2f50" opacity="0.8"/>
+                  <ellipse cx="80" cy="5" rx="15" ry="4" fill="#5a4a70" opacity="0.6"/>
+                  <!-- floor -->
+                  <rect x="0" y="68" width="160" height="22" fill="#16131f"/>
+                  <!-- benches -->
+                  <rect x="15" y="55" width="40" height="5" fill="#2d2440" rx="1"/>
+                  <rect x="17" y="60" width="4" height="8" fill="#2d2440"/>
+                  <rect x="51" y="60" width="4" height="8" fill="#2d2440"/>
+                  <rect x="90" y="55" width="40" height="5" fill="#2d2440" rx="1"/>
+                  <rect x="92" y="60" width="4" height="8" fill="#2d2440"/>
+                  <rect x="126" y="60" width="4" height="8" fill="#2d2440"/>
+                  <!-- seated people -->
+                  <ellipse cx="28" cy="53" rx="5" ry="6" fill="#1e1a30"/>
+                  <circle cx="28" cy="45" r="3.5" fill="#2a2440"/>
+                  <ellipse cx="43" cy="53" rx="5" ry="6" fill="#201c32"/>
+                  <circle cx="43" cy="45" r="3.5" fill="#2a2440"/>
+                  <ellipse cx="105" cy="53" rx="5" ry="6" fill="#1e1a30"/>
+                  <circle cx="105" cy="45" r="3.5" fill="#2a2440"/>
+                  <!-- standing person -->
+                  <ellipse cx="75" cy="58" rx="4" ry="8" fill="#1e1a30"/>
+                  <circle cx="75" cy="48" r="4" fill="#2a2440"/>
+                  <rect x="2" y="2" width="56" height="8" fill="black" opacity="0.5" rx="1"/>
+                  <text x="4" y="9" font-family="monospace" font-size="5.5" fill="#00ff41">CAM-05 LIVE</text>
+                </svg>`,
+                // CAM-06: Ticket Counter — queue
+                `<svg viewBox="0 0 160 90" xmlns="http://www.w3.org/2000/svg">
+                  <defs><linearGradient id="g5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1a2218"/><stop offset="100%" stop-color="#0e160c"/></linearGradient></defs>
+                  <rect width="160" height="90" fill="url(#g5)"/>
+                  <!-- counter -->
+                  <rect x="10" y="35" width="140" height="20" fill="#1f2d1c" rx="2"/>
+                  <rect x="10" y="33" width="140" height="5" fill="#2a3d26" rx="1"/>
+                  <!-- windows -->
+                  <rect x="20" y="10" width="30" height="25" fill="#1a2d16" rx="2" stroke="#2a4020" stroke-width="1"/>
+                  <rect x="65" y="10" width="30" height="25" fill="#1a2d16" rx="2" stroke="#2a4020" stroke-width="1"/>
+                  <rect x="110" y="10" width="30" height="25" fill="#1a2d16" rx="2" stroke="#2a4020" stroke-width="1"/>
+                  <!-- monitor glow -->
+                  <rect x="25" y="15" width="20" height="12" fill="#1a3a50" rx="1"/>
+                  <rect x="70" y="15" width="20" height="12" fill="#1a3a50" rx="1"/>
+                  <!-- queue of people -->
+                  <ellipse cx="35" cy="62" rx="4" ry="7" fill="#162415"/>
+                  <circle cx="35" cy="53" r="3" fill="#1e3020"/>
+                  <ellipse cx="55" cy="63" rx="3.5" ry="6" fill="#162415"/>
+                  <circle cx="55" cy="55" r="2.5" fill="#1e3020"/>
+                  <ellipse cx="72" cy="62" rx="4" ry="7" fill="#1a2819"/>
+                  <circle cx="72" cy="53" r="3" fill="#1e3020"/>
+                  <ellipse cx="90" cy="63" rx="3.5" ry="6" fill="#162415"/>
+                  <circle cx="90" cy="55" r="2.5" fill="#1e3020"/>
+                  <!-- floor -->
+                  <rect x="0" y="70" width="160" height="20" fill="#111a10"/>
+                  <rect x="2" y="2" width="56" height="8" fill="black" opacity="0.5" rx="1"/>
+                  <text x="4" y="9" font-family="monospace" font-size="5.5" fill="#00ff41">CAM-06 LIVE</text>
+                </svg>`,
+              ];
+
               return (
                 <div
                   key={cam.id}
-                  className={`relative rounded-xl overflow-hidden bg-gray-900 aspect-video cursor-pointer transition-all
+                  className={`relative rounded-xl overflow-hidden bg-[#0d1117] aspect-video cursor-pointer transition-all
                     ${selectedCam === cam.id ? 'ring-2 ring-[#F97316]' : 'hover:ring-2 hover:ring-[#F97316]/50'}
                     ${hasAlert ? 'ring-2 ring-red-500' : ''}`}
                   onClick={() => setSelectedCam(selectedCam === cam.id ? null : cam.id)}
                 >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-gray-600 text-[30px]">videocam</span>
-                  </div>
-                  {/* Simulated scanline effect */}
-                  {!isMaintenance && (
-                    <div className="absolute inset-0 pointer-events-none" style={{
-                      background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.02) 2px, rgba(255,255,255,0.02) 4px)'
-                    }}></div>
+                  {/* CCTV scene or maintenance */}
+                  {isMaintenance ? (
+                    <div className="absolute inset-0 bg-[#0d1117] flex flex-col items-center justify-center">
+                      <span className="material-symbols-outlined text-gray-500 text-[22px]">construction</span>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase mt-1 tracking-widest">Maintenance</span>
+                    </div>
+                  ) : (
+                    <div
+                      className="absolute inset-0 w-full h-full"
+                      dangerouslySetInnerHTML={{ __html: cctvScenes[idx] }}
+                      style={{ lineHeight: 0 }}
+                    />
                   )}
-                  {isMaintenance && (
-                    <div className="absolute inset-0 bg-gray-800/80 flex flex-col items-center justify-center">
-                      <span className="material-symbols-outlined text-gray-400 text-[20px]">construction</span>
-                      <span className="text-[10px] font-bold text-gray-400 uppercase mt-1">Maintenance</span>
+
+                  {/* Green "recording" dot */}
+                  {!isMaintenance && (
+                    <div className="absolute top-2 right-2 flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
                     </div>
                   )}
+
+                  {/* Alert badge */}
                   {hasAlert && !isMaintenance && (
-                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-red-500 animate-pulse flex items-center justify-center">
+                    <div className="absolute top-1.5 right-5 w-5 h-5 rounded-full bg-red-500 animate-pulse flex items-center justify-center">
                       <span className="text-white text-[9px] font-black">!</span>
                     </div>
                   )}
-                  {/* Crowd density overlay when result available */}
+
+                  {/* Density overlay */}
                   {hasResult && !isMaintenance && density !== null && (
                     <div className="absolute top-1.5 left-1.5">
                       <span className="text-[9px] font-bold text-white/80 bg-black/40 rounded px-1">{density.toFixed(1)} p/m²</span>
                     </div>
                   )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5">
+
+                  {/* Camera label */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-1.5">
                     <p className="text-white text-[9px] font-bold">{cam.id}</p>
                     <p className="text-white/60 text-[8px]">{cam.location}</p>
                   </div>
