@@ -22,7 +22,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from .. import database
-from ..models import DelayPrediction, Train
+from ..auth import get_current_user
+from ..models import DelayPrediction, Train, User
 from ..services.ntes import get_live_train_status
 from ..services.weather import WeatherData, get_live_weather
 
@@ -325,6 +326,7 @@ async def get_delay_prediction(
     train_no: str,
     request: DelayRequest,
     db: AsyncSession = Depends(database.get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Predict delay for a given train number.
@@ -378,7 +380,7 @@ async def get_delay_prediction(
         root_causes.append("SIGNAL")
     if congestion_level > 0.6:
         root_causes.append("CONGESTION")
-    if datetime.now().hour in [7, 8, 9, 17, 18, 19]:
+    if datetime.now(timezone.utc).hour in [7, 8, 9, 17, 18, 19]:
         root_causes.append("PEAK HOURS")
     if not root_causes:
         if predicted_delay > 30:
@@ -407,7 +409,7 @@ async def get_delay_prediction(
                 signal_status=request.signal_status,
                 congestion_level=round(congestion_level, 4),
                 model_version=_MODEL_VERSION,
-                requested_by_ip="127.0.0.1",
+                requested_by_ip=str(current_user.id),
             )
         )
         await db.commit()

@@ -1,8 +1,6 @@
 import json
 import logging
-import os
-import pathlib
-import tempfile
+import random
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse
@@ -65,9 +63,9 @@ def get_severity(risk: float) -> str:
 
 
 def get_priority(defects: list) -> str:
-    if any(d["severity"] == "HIGH" for d in defects):
+    if any(d.get("severity") == "HIGH" for d in defects):
         return "IMMEDIATE"
-    elif any(d["severity"] == "MEDIUM" for d in defects):
+    elif any(d.get("severity") == "MEDIUM" for d in defects):
         return "SCHEDULED"
     return "MONITOR"
 
@@ -77,12 +75,46 @@ async def analyze_track(
     file: UploadFile = File(...), kilometer_marker: str = Form(default="KM 0.0")
 ):
     contents = await file.read()
+    mime_type = file.content_type or "image/jpeg"
 
-    # Save to temp file so Gemini can read it
-    suffix = pathlib.Path(file.filename or "image.jpg").suffix or ".jpg"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(contents)
-        tmp_path = tmp.name
+    gemini_model = _get_gemini_model()
+
+    # If Gemini is not available, return a mock result
+    if gemini_model is None:
+        mock_defects = [
+            {
+                "defect_class": "Cracked Fastener",
+                "class": "Cracked Fastener",
+                "confidence": 92.3,
+                "risk_score": 7.3,
+                "severity": "HIGH",
+                "location": kilometer_marker,
+                "recommended_action": "Immediate Stop & Inspect",
+            },
+            {
+                "defect_class": "Ballast Fouling",
+                "class": "Ballast Fouling",
+                "confidence": 85.1,
+                "risk_score": 6.2,
+                "severity": "MEDIUM",
+                "location": kilometer_marker,
+                "recommended_action": "Schedule Maintenance",
+            },
+        ]
+        selected = random.sample(mock_defects, k=random.randint(1, 2))
+        priority = get_priority(selected)
+        return {
+            "defects": selected,
+            "defects_found": len(selected),
+            "maintenance_priority": priority,
+            "confidence": 87.5,
+            "track_condition": "FAIR",
+            "summary": "Mock analysis — Gemini API key not configured. Configure GEMINI_API_KEY in .env for real AI analysis.",
+            "status": "mock",
+            "file_received": file.filename,
+            "kilometer_marker": kilometer_marker,
+            "model_version": "mock-fallback",
+        }
 
     PROMPT = """You are an expert railway track inspection AI for Indian Railways.
 
@@ -127,49 +159,9 @@ Rules:
 - All numbers must be floats, not strings
 """
 
-    gemini_model = _get_gemini_model()
-
-    # If Gemini is not available, return a mock result
-    if gemini_model is None:
-        import random
-
-        mock_defects = [
-            {
-                "defect_class": "Cracked Fastener",
-                "class": "Cracked Fastener",
-                "confidence": 92.3,
-                "risk_score": 7.3,
-                "severity": "HIGH",
-                "location": kilometer_marker,
-                "recommended_action": "Immediate Stop & Inspect",
-            },
-            {
-                "defect_class": "Ballast Fouling",
-                "class": "Ballast Fouling",
-                "confidence": 85.1,
-                "risk_score": 6.2,
-                "severity": "MEDIUM",
-                "location": kilometer_marker,
-                "recommended_action": "Schedule Maintenance",
-            },
-        ]
-        selected = random.sample(mock_defects, k=random.randint(1, 2))
-        priority = get_priority(selected)
-        return {
-            "defects": selected,
-            "defects_found": len(selected),
-            "maintenance_priority": priority,
-            "confidence": 87.5,
-            "track_condition": "FAIR",
-            "summary": "Mock analysis — Gemini API key not configured. Configure GEMINI_API_KEY in .env for real AI analysis.",
-            "status": "mock",
-            "file_received": file.filename,
-            "kilometer_marker": kilometer_marker,
-            "model_version": "mock-fallback",
-        }
-
     try:
-        image_part = {"mime_type": file.content_type or "image/jpeg", "data": contents}
+        # Pass image bytes directly — no temp file needed
+        image_part = {"mime_type": mime_type, "data": contents}
 
         response = gemini_model.generate_content([PROMPT, image_part])
         response_text = response.text.strip()
@@ -234,13 +226,8 @@ Rules:
             },
         )
     except Exception as e:
+        logger.error("Track analysis error: %s", e)
         return JSONResponse(
             status_code=500,
             content={"error": "Analysis failed", "detail": str(e), "status": "error"},
         )
-    finally:
-        # Clean up temp file
-        try:
-            os.unlink(tmp_path)
-        except Exception:
-            pass

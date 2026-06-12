@@ -1,10 +1,25 @@
 import asyncio
-from app.database import engine, Base, AsyncSessionLocal
-from app.models import Station, Train, User, RoleEnum, DelayPrediction, PlatformAnalysis, TrackAnalysis, AlertLevelEnum, PriorityLevelEnum
-from app.auth import get_password_hash
-import uuid
+from datetime import datetime, timezone, timedelta
 import random
-from datetime import datetime, timedelta
+import uuid
+
+from app.database import engine, Base, AsyncSessionLocal
+from app.models import (
+    AlertLevelEnum,
+    DelayPrediction,
+    PlatformAnalysis,
+    PriorityLevelEnum,
+    RoleEnum,
+    Station,
+    TrackAnalysis,
+    Train,
+    User,
+)
+from app.auth import get_password_hash
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 async def init_models():
     async with engine.begin() as conn:
@@ -134,7 +149,7 @@ async def seed_data():
 
         # ============ Seed Historical Delay Predictions ============
         delays = []
-        now = datetime.now()
+        now = _utcnow()
         for _ in range(80):
             train = random.choice(trains)
             delay_min = random.randint(0, 180)

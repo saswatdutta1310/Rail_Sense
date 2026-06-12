@@ -1,5 +1,5 @@
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from app.main import app
@@ -25,24 +25,27 @@ async def override_get_db():
     async with TestingSessionLocal() as session:
         yield session
 
-@pytest.fixture
+import pytest_asyncio
+
+@pytest_asyncio.fixture(scope="module", autouse=True)
 async def setup_test_db():
     """Create test database and tables"""
     async with engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    app.dependency_overrides[get_db] = override_get_db
     yield
     async with engine_test.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-
-@pytest.fixture
-async def client(setup_test_db):
-    """Create test client"""
-    app.dependency_overrides[get_db] = override_get_db
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        yield client
     app.dependency_overrides.clear()
 
-@pytest.fixture
+@pytest_asyncio.fixture
+async def client(setup_test_db):
+    """Create test client"""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+@pytest_asyncio.fixture(scope="module")
 async def test_user():
     """Create a test user"""
     async with TestingSessionLocal() as session:
@@ -275,29 +278,24 @@ class TestGetCurrentUser:
         )
         assert response.status_code == 401
 
+
 class TestLogout:
     """Tests for logout endpoint"""
 
     @pytest.mark.asyncio
     async def test_logout_success(self, client, test_user):
         """Test logout endpoint"""
-        # First login to get token
         login_response = await client.post(
             "/api/auth/login",
-            data={
-                "username": "testuser@railsense.ai",
-                "password": "testpass123"
-            }
+            data={"username": "testuser@railsense.ai", "password": "testpass123"}
         )
         token = login_response.json()["access_token"]
-
-        # Logout
         response = await client.post(
             "/api/auth/logout",
             headers={"Authorization": f"Bearer {token}"}
         )
-        # Stateless JWT returns 204 No Content
         assert response.status_code == 204
+
 
 class TestEndToEnd:
     """End-to-end authentication flow tests"""
@@ -305,33 +303,27 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     async def test_complete_auth_flow(self, client):
         """Test complete registration -> login -> get user flow"""
-        # 1. Register
         register_response = await client.post(
             "/api/auth/register",
             json={
                 "email": "e2e@railsense.ai",
                 "password": "e2epass123",
                 "full_name": "E2E User",
-                "role": "public"
-            }
+                "role": "public",
+            },
         )
         assert register_response.status_code == 201
 
-        # 2. Login
         login_response = await client.post(
             "/api/auth/login",
-            data={
-                "username": "e2e@railsense.ai",
-                "password": "e2epass123"
-            }
+            data={"username": "e2e@railsense.ai", "password": "e2epass123"},
         )
         assert login_response.status_code == 200
         token = login_response.json()["access_token"]
 
-        # 3. Get current user
         me_response = await client.get(
             "/api/auth/me",
-            headers={"Authorization": f"Bearer {token}"}
+            headers={"Authorization": f"Bearer {token}"},
         )
         assert me_response.status_code == 200
         assert me_response.json()["email"] == "e2e@railsense.ai"
@@ -346,8 +338,8 @@ class TestEndToEnd:
                 "password": "oppass123",
                 "full_name": "Operator User",
                 "role": "operator",
-                "station_id": str(uuid.uuid4())
-            }
+                "station_id": str(uuid.uuid4()),
+            },
         )
         assert response.status_code == 201
         assert response.json()["role"] == "operator"
