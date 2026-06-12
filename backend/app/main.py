@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database import engine, Base
-from .routers import auth, delay, vision, impact, track
+
+from .database import Base, engine
+from .routers import auth, delay, impact, track, vision
 from .routers.sms import router as sms_router
 
 
@@ -34,9 +36,11 @@ app.include_router(vision.router)
 app.include_router(impact.router)
 app.include_router(track.router, prefix="/api/track", tags=["Track Inspector"])
 
+
 @app.get("/")
 async def root():
     return {"message": "Welcome to RailSense AI"}
+
 
 @app.get("/api/health")
 async def health_check():

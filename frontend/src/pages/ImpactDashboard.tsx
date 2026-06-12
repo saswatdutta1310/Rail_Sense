@@ -35,7 +35,7 @@ export default function ImpactDashboard() {
         `/impact/?stations=${stations}&track_km=${trackKm}&delay_saved=${delaySaved}`
       );
       setMetrics(response);
-    } catch (err) {
+    } catch {
       console.warn("Using mock fallbacks for Impact Metrics");
       // Fallback calculation locally for MVP if backend is down
       setMetrics({
@@ -53,6 +53,7 @@ export default function ImpactDashboard() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

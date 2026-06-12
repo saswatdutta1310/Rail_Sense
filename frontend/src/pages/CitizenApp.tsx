@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiCall } from '../api/client';
+
 
 export default function CitizenApp() {
   const [trainQuery, setTrainQuery] = useState('');
@@ -46,7 +46,7 @@ export default function CitizenApp() {
       } else {
         setSubscribeStatus(`Error: ${data.message || 'Subscription failed. Please try again.'}`);
       }
-    } catch (err) {
+    } catch {
       setSubscribeStatus("Error: Failed to subscribe to alerts. Network error.");
     } finally {
       setIsSubscribing(false);

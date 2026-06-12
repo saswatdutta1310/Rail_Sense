@@ -108,14 +108,17 @@ export default function TrackInspector() {
       // Normalise into the shape the UI expects
       setAnalysisResult({
         ...data,
-        defects: (data.defects || []).map((d: any) => ({
+        defects: (data.defects || []).map((d: Record<string, unknown>) => ({
           ...d,
-          class: d.defect_class || d.class,
-          confidence: d.confidence,   // 0–1, defectConfidence() handles scaling
+          class: (d.defect_class || d.class) as string,
+          confidence: d.confidence as number,   // 0–1, defectConfidence() handles scaling
+          risk_score: d.risk_score as number,
+          recommended_action: d.recommended_action as string | undefined,
+          location: d.location as string | undefined,
         })),
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Analysis error:', error);
       // Fallback mock so the UI remains useful without a live backend
       setAnalysisResult({

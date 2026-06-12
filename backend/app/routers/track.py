@@ -1,10 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form
-from fastapi.responses import JSONResponse
 import json
-import os
-import tempfile
-import pathlib
 import logging
+import os
+import pathlib
+import tempfile
+
+from fastapi import APIRouter, File, Form, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 
@@ -16,6 +17,7 @@ router = APIRouter(tags=["Track Inspector"])
 _model = None
 _genai_configured = False
 
+
 def _get_gemini_model():
     global _model, _genai_configured
     if _model is not None:
@@ -25,10 +27,13 @@ def _get_gemini_model():
     _genai_configured = True
     api_key = settings.gemini_api_key
     if not api_key:
-        logger.warning("GEMINI_API_KEY not set — track analysis will return mock results")
+        logger.warning(
+            "GEMINI_API_KEY not set — track analysis will return mock results"
+        )
         return None
     try:
         import google.generativeai as genai
+
         genai.configure(api_key=api_key)
         _model = genai.GenerativeModel("gemini-2.5-flash")
         logger.info("Gemini model initialized successfully")
@@ -37,22 +42,27 @@ def _get_gemini_model():
         logger.error("Failed to initialize Gemini: %s", e)
         return None
 
+
 RISK_SCORES = {
-    "Cracked Fastener":     7.3,
-    "Missing Clip":         5.8,
-    "Ballast Fouling":      6.2,
-    "Rail Fracture":        9.1,
+    "Cracked Fastener": 7.3,
+    "Missing Clip": 5.8,
+    "Ballast Fouling": 6.2,
+    "Rail Fracture": 9.1,
     "Track Geometry Fault": 8.4,
-    "Corrosion":            6.0,
-    "Broken Rail":          9.5,
-    "Loose Bolt":           5.2,
-    "No Defect":            0.5,
+    "Corrosion": 6.0,
+    "Broken Rail": 9.5,
+    "Loose Bolt": 5.2,
+    "No Defect": 0.5,
 }
 
+
 def get_severity(risk: float) -> str:
-    if risk >= 7.0: return "HIGH"
-    elif risk >= 4.0: return "MEDIUM"
+    if risk >= 7.0:
+        return "HIGH"
+    elif risk >= 4.0:
+        return "MEDIUM"
     return "LOW"
+
 
 def get_priority(defects: list) -> str:
     if any(d["severity"] == "HIGH" for d in defects):
@@ -64,8 +74,7 @@ def get_priority(defects: list) -> str:
 
 @router.post("/analyze")
 async def analyze_track(
-    file: UploadFile = File(...),
-    kilometer_marker: str = Form(default="KM 0.0")
+    file: UploadFile = File(...), kilometer_marker: str = Form(default="KM 0.0")
 ):
     contents = await file.read()
 
@@ -123,9 +132,26 @@ Rules:
     # If Gemini is not available, return a mock result
     if gemini_model is None:
         import random
+
         mock_defects = [
-            {"defect_class": "Cracked Fastener", "class": "Cracked Fastener", "confidence": 92.3, "risk_score": 7.3, "severity": "HIGH", "location": kilometer_marker, "recommended_action": "Immediate Stop & Inspect"},
-            {"defect_class": "Ballast Fouling", "class": "Ballast Fouling", "confidence": 85.1, "risk_score": 6.2, "severity": "MEDIUM", "location": kilometer_marker, "recommended_action": "Schedule Maintenance"},
+            {
+                "defect_class": "Cracked Fastener",
+                "class": "Cracked Fastener",
+                "confidence": 92.3,
+                "risk_score": 7.3,
+                "severity": "HIGH",
+                "location": kilometer_marker,
+                "recommended_action": "Immediate Stop & Inspect",
+            },
+            {
+                "defect_class": "Ballast Fouling",
+                "class": "Ballast Fouling",
+                "confidence": 85.1,
+                "risk_score": 6.2,
+                "severity": "MEDIUM",
+                "location": kilometer_marker,
+                "recommended_action": "Schedule Maintenance",
+            },
         ]
         selected = random.sample(mock_defects, k=random.randint(1, 2))
         priority = get_priority(selected)
@@ -139,14 +165,11 @@ Rules:
             "status": "mock",
             "file_received": file.filename,
             "kilometer_marker": kilometer_marker,
-            "model_version": "mock-fallback"
+            "model_version": "mock-fallback",
         }
 
     try:
-        image_part = {
-            "mime_type": file.content_type or "image/jpeg",
-            "data": contents
-        }
+        image_part = {"mime_type": file.content_type or "image/jpeg", "data": contents}
 
         response = gemini_model.generate_content([PROMPT, image_part])
         response_text = response.text.strip()
@@ -170,15 +193,21 @@ Rules:
             cls = d.get("defect_class", "Unknown")
             risk = RISK_SCORES.get(cls, float(d.get("risk_score", 5.0)))
             severity = get_severity(risk)
-            enriched.append({
-                "defect_class": cls,
-                "class": cls,
-                "confidence": round(float(d.get("confidence", 80.0)), 1),
-                "risk_score": round(risk, 1),
-                "severity": severity,
-                "location": d.get("location", kilometer_marker),
-                "recommended_action": "Immediate Stop & Inspect" if severity == "HIGH" else "Schedule Maintenance"
-            })
+            enriched.append(
+                {
+                    "defect_class": cls,
+                    "class": cls,
+                    "confidence": round(float(d.get("confidence", 80.0)), 1),
+                    "risk_score": round(risk, 1),
+                    "severity": severity,
+                    "location": d.get("location", kilometer_marker),
+                    "recommended_action": (
+                        "Immediate Stop & Inspect"
+                        if severity == "HIGH"
+                        else "Schedule Maintenance"
+                    ),
+                }
+            )
 
         priority = get_priority(enriched)
 
@@ -192,21 +221,23 @@ Rules:
             "status": "complete",
             "file_received": file.filename,
             "kilometer_marker": kilometer_marker,
-            "model_version": "gemini-2.5-flash"
+            "model_version": "gemini-2.5-flash",
         }
 
     except json.JSONDecodeError as e:
-        return JSONResponse(status_code=422, content={
-            "error": "Failed to parse Gemini response",
-            "detail": str(e),
-            "status": "error"
-        })
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Failed to parse Gemini response",
+                "detail": str(e),
+                "status": "error",
+            },
+        )
     except Exception as e:
-        return JSONResponse(status_code=500, content={
-            "error": "Analysis failed",
-            "detail": str(e),
-            "status": "error"
-        })
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Analysis failed", "detail": str(e), "status": "error"},
+        )
     finally:
         # Clean up temp file
         try:

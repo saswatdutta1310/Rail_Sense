@@ -34,8 +34,9 @@ export default function Login() {
       const data = await response.json();
       await login(data.access_token);
       navigate('/');
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during login');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setError(errMsg || 'An error occurred during login');
     } finally {
       setIsLoading(false);
     }

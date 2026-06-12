@@ -19,7 +19,7 @@ export default function PlatformGuard() {
       const blob = new Blob(["dummy content"], { type: "image/jpeg" });
       formData.append("file", blob, "camera_feed.jpg");
 
-      const response = await apiCall<any>('/vision/platform', {
+      const response = await apiCall<Record<string, unknown>>('/vision/platform', {
         method: 'POST',
         body: formData,
       }, {

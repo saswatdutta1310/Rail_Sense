@@ -1,7 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, Dict, Any
 from datetime import datetime
-from .models import RoleEnum, AlertLevelEnum, PriorityLevelEnum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
+
+from .models import AlertLevelEnum, PriorityLevelEnum, RoleEnum
+
 
 # ============ Authentication ============
 class UserCreate(BaseModel):
@@ -11,9 +14,11 @@ class UserCreate(BaseModel):
     role: Optional[RoleEnum] = RoleEnum.public
     station_id: Optional[str] = None
 
+
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     station_id: Optional[str] = None
+
 
 class UserOut(BaseModel):
     id: str
@@ -28,14 +33,17 @@ class UserOut(BaseModel):
     class Config:
         from_attributes = True
 
+
 class Token(BaseModel):
     access_token: str
     refresh_token: Optional[str] = None
     token_type: str = "bearer"
     expires_in: int
 
+
 class TokenRefresh(BaseModel):
     refresh_token: str
+
 
 # ============ Station ============
 class StationBase(BaseModel):
@@ -49,6 +57,7 @@ class StationBase(BaseModel):
     has_cctv: bool = False
     zone: str
 
+
 class StationOut(StationBase):
     id: str
     created_at: datetime
@@ -56,6 +65,7 @@ class StationOut(StationBase):
 
     class Config:
         from_attributes = True
+
 
 # ============ Train ============
 class TrainBase(BaseModel):
@@ -68,6 +78,7 @@ class TrainBase(BaseModel):
     is_active: bool = True
     name_translations: Optional[Dict[str, str]] = None
 
+
 class TrainOut(TrainBase):
     id: str
     created_at: datetime
@@ -76,9 +87,11 @@ class TrainOut(TrainBase):
     class Config:
         from_attributes = True
 
+
 class TrainSearch(BaseModel):
     q: str  # Search query (train name or number)
     lang: str = "en"  # Language code
+
 
 # ============ Delay Prediction ============
 class DelayPredictionCreate(BaseModel):
@@ -91,6 +104,7 @@ class DelayPredictionCreate(BaseModel):
     congestion_level: float
     model_version: str
 
+
 class DelayPredictionOut(DelayPredictionCreate):
     id: str
     predicted_at: datetime
@@ -100,6 +114,7 @@ class DelayPredictionOut(DelayPredictionCreate):
     class Config:
         from_attributes = True
 
+
 class DelayPredictionResponse(BaseModel):
     train_number: str
     train_name: str
@@ -108,12 +123,14 @@ class DelayPredictionResponse(BaseModel):
     root_causes: List[str]
     signal_status: str
     congestion_level: float
-    
+
+
 class CascadeImpact(BaseModel):
     downstream_train_number: str
     downstream_train_name: str
     estimated_delay_propagation: int
     impact_severity: str
+
 
 # ============ Platform Analysis ============
 class PlatformAnalysisCreate(BaseModel):
@@ -127,6 +144,7 @@ class PlatformAnalysisCreate(BaseModel):
     detection_metadata: Dict[str, Any]
     model_version: str
 
+
 class PlatformAnalysisOut(PlatformAnalysisCreate):
     id: str
     operator_id: Optional[str]
@@ -135,6 +153,7 @@ class PlatformAnalysisOut(PlatformAnalysisCreate):
 
     class Config:
         from_attributes = True
+
 
 # ============ Track Analysis ============
 class TrackAnalysisCreate(BaseModel):
@@ -147,6 +166,7 @@ class TrackAnalysisCreate(BaseModel):
     defects: List[Dict[str, Any]]
     model_version: str
 
+
 class TrackAnalysisOut(TrackAnalysisCreate):
     id: str
     engineer_id: Optional[str]
@@ -156,11 +176,13 @@ class TrackAnalysisOut(TrackAnalysisCreate):
     class Config:
         from_attributes = True
 
+
 # ============ SMS Subscription ============
 class SmsSubscriptionCreate(BaseModel):
     phone_number: str  # E.164 format
     train_id: str
     language_code: str = "en"
+
 
 class SmsSubscriptionOut(SmsSubscriptionCreate):
     id: str
@@ -172,6 +194,7 @@ class SmsSubscriptionOut(SmsSubscriptionCreate):
     class Config:
         from_attributes = True
 
+
 # ============ Impact Dashboard ============
 class ImpactMetrics(BaseModel):
     stations_deployed: int
@@ -181,6 +204,7 @@ class ImpactMetrics(BaseModel):
     annual_fuel_savings_crore: float
     animal_lives_saved_yearly: int
     incidents_prevented_yearly: int
+
 
 # ============ Health Check ============
 class HealthCheck(BaseModel):

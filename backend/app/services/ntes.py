@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _BRIDGE_TIMEOUT = 5.0  # seconds — keeps delay-prediction latency low
 
+
 # ---------------------------------------------------------------------------
 # Pydantic models
 # ---------------------------------------------------------------------------
@@ -30,13 +31,15 @@ class TrainLocation(BaseModel):
     latitude: float
     longitude: float
 
+
 class TrainStatus(BaseModel):
     train_number: str
-    status: str           # "Running" | "Delayed" | "Halted"
+    status: str  # "Running" | "Delayed" | "Halted"
     current_location: TrainLocation
     last_reported_station: str
     delay_minutes: int
-    data_source: str = "mock"   # "live" | "mock" — shown in frontend badge
+    data_source: str = "mock"  # "live" | "mock" — shown in frontend badge
+
 
 # ---------------------------------------------------------------------------
 # Mock train data — used as fallback when bridge is unavailable
@@ -108,6 +111,7 @@ _MOCK_TRAINS = {
     },
 }
 
+
 # ---------------------------------------------------------------------------
 # Live fetch via bridge
 # ---------------------------------------------------------------------------
@@ -124,7 +128,8 @@ async def _fetch_live(train_number: str) -> Optional[TrainStatus]:
         if resp.status_code != 200:
             logger.warning(
                 "ntes-bridge returned HTTP %d for train %s",
-                resp.status_code, train_number,
+                resp.status_code,
+                train_number,
             )
             return None
 
@@ -143,11 +148,17 @@ async def _fetch_live(train_number: str) -> Optional[TrainStatus]:
         )
 
     except httpx.ConnectError:
-        logger.warning("ntes-bridge not reachable at %s — using mock data", settings.NTES_BRIDGE_URL)
+        logger.warning(
+            "ntes-bridge not reachable at %s — using mock data",
+            settings.NTES_BRIDGE_URL,
+        )
         return None
     except Exception as exc:
-        logger.warning("ntes-bridge error for train %s: %s — using mock data", train_number, exc)
+        logger.warning(
+            "ntes-bridge error for train %s: %s — using mock data", train_number, exc
+        )
         return None
+
 
 # ---------------------------------------------------------------------------
 # Mock fallback
@@ -184,6 +195,7 @@ def _mock_status(train_number: str) -> TrainStatus:
         delay_minutes=delay_minutes,
         data_source="mock",
     )
+
 
 # ---------------------------------------------------------------------------
 # Public API

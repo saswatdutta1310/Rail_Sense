@@ -82,8 +82,8 @@ class DelayResult(BaseModel):
 
 
 class DelayRequest(BaseModel):
-    signal_status: str = "normal"   # normal | degraded | failed
-    congestion_level: float = 0.5   # 0.0–1.0
+    signal_status: str = "normal"  # normal | degraded | failed
+    congestion_level: float = 0.5  # 0.0–1.0
 
 
 class CascadeTrainResult(BaseModel):
@@ -202,12 +202,12 @@ def build_feature_vector(
     Feature order: fog_index, rainfall_mm, signal_status,
                    congestion_level, time_of_day, train_type
     """
-    fog_index   = _derive_fog_index(weather_data)
+    fog_index = _derive_fog_index(weather_data)
     rainfall_mm = float(weather_data.rainfall_mm)
-    signal_int  = _SIGNAL_MAP.get(signal_status.lower(), 0)
-    congestion  = float(max(0.0, min(1.0, congestion_level)))
+    signal_int = _SIGNAL_MAP.get(signal_status.lower(), 0)
+    congestion = float(max(0.0, min(1.0, congestion_level)))
     time_of_day = datetime.now(timezone.utc).hour
-    train_type  = _encode_train_type(train_no)
+    train_type = _encode_train_type(train_no)
 
     vector = np.array(
         [[fog_index, rainfall_mm, signal_int, congestion, time_of_day, train_type]],
@@ -215,7 +215,12 @@ def build_feature_vector(
     )
     logger.debug(
         "Feature vector: fog=%.2f rain=%.1f sig=%d cong=%.2f tod=%d type=%d",
-        fog_index, rainfall_mm, signal_int, congestion, time_of_day, train_type,
+        fog_index,
+        rainfall_mm,
+        signal_int,
+        congestion,
+        time_of_day,
+        train_type,
     )
     return vector
 
@@ -258,7 +263,9 @@ async def _predict_delay_for_train(train_no: str) -> int:
         fv = build_feature_vector(weather_data, train_no=train_no)
         if _model is not None:
             return max(0, min(240, int(_model.predict(fv)[0])))
-        return _fallback_delay(float(fv[0, 0]), float(fv[0, 1]), "normal", float(fv[0, 3]))
+        return _fallback_delay(
+            float(fv[0, 0]), float(fv[0, 1]), "normal", float(fv[0, 3])
+        )
     except Exception as exc:
         logger.warning(
             "_predict_delay_for_train(%s) failed: %s — using fallback 25", train_no, exc
@@ -346,8 +353,8 @@ async def get_delay_prediction(
         congestion_level=request.congestion_level,
     )
 
-    fog_index        = float(feature_vector[0, 0])
-    rainfall_mm      = float(feature_vector[0, 1])
+    fog_index = float(feature_vector[0, 0])
+    rainfall_mm = float(feature_vector[0, 1])
     congestion_level = float(feature_vector[0, 3])
 
     # Model inference

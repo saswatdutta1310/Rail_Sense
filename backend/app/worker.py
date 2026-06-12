@@ -1,6 +1,8 @@
-from celery import Celery
-from app.config import settings
 import logging
+
+from celery import Celery
+
+from app.config import settings
 
 # Initialize Celery app
 celery_app = Celery(

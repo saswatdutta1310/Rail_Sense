@@ -15,7 +15,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const data = await apiCall<any>('/impact/', { method: 'GET' }, {
+        const data = await apiCall<unknown>('/impact/', { method: 'GET' }, {
           stations_deployed: 50,
           incidents_prevented_yr: 42,
           annual_fuel_savings_cr: 1.2,

@@ -1,9 +1,24 @@
-from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime, Float, Enum, JSON, Index, UniqueConstraint
-from sqlalchemy.orm import relationship
-import uuid
 import enum
+import uuid
 from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
+
 from .database import Base
+
 
 class RoleEnum(str, enum.Enum):
     public = "public"
@@ -11,17 +26,20 @@ class RoleEnum(str, enum.Enum):
     admin = "admin"
     superadmin = "superadmin"
 
+
 class AlertLevelEnum(str, enum.Enum):
     green = "green"
     yellow = "yellow"
     red = "red"
     critical = "critical"
 
+
 class PriorityLevelEnum(str, enum.Enum):
     low = "low"
     medium = "medium"
     high = "high"
     critical = "critical"
+
 
 class User(Base):
     __tablename__ = "users"
@@ -34,9 +52,12 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     station = relationship("Station")
+
 
 class Station(Base):
     __tablename__ = "stations"
@@ -51,13 +72,16 @@ class Station(Base):
     has_cctv = Column(Boolean, default=False, index=True)
     zone = Column(String(10), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    __table_args__ = (
-        Index('idx_station_code', 'station_code'),
-        Index('idx_station_city', 'city'),
-        Index('idx_station_has_cctv', 'has_cctv'),
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+    __table_args__ = (
+        Index("idx_station_code", "station_code"),
+        Index("idx_station_city", "city"),
+        Index("idx_station_has_cctv", "has_cctv"),
+    )
+
 
 class Train(Base):
     __tablename__ = "trains"
@@ -71,15 +95,18 @@ class Train(Base):
     typical_duration_min = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     origin_station = relationship("Station", foreign_keys=[origin_station_id])
     destination_station = relationship("Station", foreign_keys=[destination_station_id])
-    
+
     __table_args__ = (
-        Index('idx_train_number', 'train_number'),
-        Index('idx_train_is_active', 'is_active'),
+        Index("idx_train_number", "train_number"),
+        Index("idx_train_is_active", "is_active"),
     )
+
 
 class DelayPrediction(Base):
     __tablename__ = "delay_predictions"
@@ -95,14 +122,17 @@ class DelayPrediction(Base):
     predicted_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     requested_by_ip = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     train = relationship("Train")
-    
+
     __table_args__ = (
-        Index('idx_delay_train_id', 'train_id'),
-        Index('idx_delay_predicted_at', 'predicted_at'),
+        Index("idx_delay_train_id", "train_id"),
+        Index("idx_delay_predicted_at", "predicted_at"),
     )
+
 
 class PlatformAnalysis(Base):
     __tablename__ = "platform_analyses"
@@ -119,16 +149,19 @@ class PlatformAnalysis(Base):
     model_version = Column(String(20), nullable=False)
     analyzed_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     station = relationship("Station")
     operator = relationship("User")
-    
+
     __table_args__ = (
-        Index('idx_platform_station_id', 'station_id'),
-        Index('idx_platform_alert_level', 'alert_level'),
-        Index('idx_platform_fall_detected', 'fall_detected'),
+        Index("idx_platform_station_id", "station_id"),
+        Index("idx_platform_alert_level", "alert_level"),
+        Index("idx_platform_fall_detected", "fall_detected"),
     )
+
 
 class TrackAnalysis(Base):
     __tablename__ = "track_analyses"
@@ -144,15 +177,18 @@ class TrackAnalysis(Base):
     model_version = Column(String(20), nullable=False)
     analyzed_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     engineer = relationship("User")
-    
+
     __table_args__ = (
-        Index('idx_track_risk_score', 'risk_score'),
-        Index('idx_track_priority_level', 'priority_level'),
-        Index('idx_track_engineer_id', 'engineer_id'),
+        Index("idx_track_risk_score", "risk_score"),
+        Index("idx_track_priority_level", "priority_level"),
+        Index("idx_track_engineer_id", "engineer_id"),
     )
+
 
 class SmsSubscription(Base):
     __tablename__ = "sms_subscriptions"
@@ -164,12 +200,14 @@ class SmsSubscription(Base):
     subscribed_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     last_alerted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     train = relationship("Train")
-    
+
     __table_args__ = (
-        UniqueConstraint('phone_number', 'train_id', name='uq_phone_train'),
-        Index('idx_sms_phone_number', 'phone_number'),
-        Index('idx_sms_is_active', 'is_active'),
+        UniqueConstraint("phone_number", "train_id", name="uq_phone_train"),
+        Index("idx_sms_phone_number", "phone_number"),
+        Index("idx_sms_is_active", "is_active"),
     )

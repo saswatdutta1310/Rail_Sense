@@ -18,7 +18,7 @@ export default function DelayPredictor() {
       const trainNoMatch = trainId.match(/\d{4,5}/);
       const trainNo = trainNoMatch ? trainNoMatch[0] : '12627';
 
-      const response = await apiCall<any>(`/delay/${trainNo}`, {
+      const response = await apiCall<Record<string, unknown>>(`/delay/${trainNo}`, {
         method: 'POST',
         body: JSON.stringify({
           signal_status: signalHealth ? 'normal' : 'failed',

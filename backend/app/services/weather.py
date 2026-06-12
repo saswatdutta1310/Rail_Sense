@@ -1,14 +1,18 @@
+import logging
+
 import httpx
 from pydantic import BaseModel
-import logging
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
 
 class WeatherData(BaseModel):
     fog_index: float
     rainfall_mm: float
     condition: str = "Clear"
+
 
 async def get_live_weather(lat: float, lon: float) -> WeatherData:
     """
@@ -20,12 +24,7 @@ async def get_live_weather(lat: float, lon: float) -> WeatherData:
         return WeatherData(fog_index=0.1, rainfall_mm=0.0)
 
     url = "https://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "appid": api_key,
-        "units": "metric"
-    }
+    params = {"lat": lat, "lon": lon, "appid": api_key, "units": "metric"}
 
     try:
         async with httpx.AsyncClient() as client:
@@ -35,9 +34,9 @@ async def get_live_weather(lat: float, lon: float) -> WeatherData:
 
             # Extract visibility in meters (max 10000m)
             visibility = data.get("visibility", 10000)
-            
+
             # Calculate Fog Index: 0.0 (clear) to 1.0 (dense fog)
-            # Using 10000m as standard max visibility. 
+            # Using 10000m as standard max visibility.
             fog_index = 1.0 - (visibility / 10000.0)
             fog_index = max(0.0, min(1.0, fog_index))
 
@@ -48,7 +47,9 @@ async def get_live_weather(lat: float, lon: float) -> WeatherData:
 
             condition = data.get("weather", [{"main": "Clear"}])[0].get("main", "Clear")
 
-            return WeatherData(fog_index=fog_index, rainfall_mm=rainfall_mm, condition=condition)
+            return WeatherData(
+                fog_index=fog_index, rainfall_mm=rainfall_mm, condition=condition
+            )
 
     except Exception as e:
         logger.error(f"Error fetching live weather data: {e}. Returning mock data.")
