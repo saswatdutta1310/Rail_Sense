@@ -1,26 +1,38 @@
-# ── General ───────────────────────────────────────────────────────────────────
+# ── Secrets ───────────────────────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
+
+# ── General ───────────────────────────────────────────────────────────────────
 .DS_Store
+Thumbs.db
 *.log
+*.swp
+*.swo
 
 # ── Python ────────────────────────────────────────────────────────────────────
-*.db
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
 venv/
 env/
 .venv/
 .pytest_cache/
 .mypy_cache/
-*.egg-info/
-dist/
-build/
+.coverage
+coverage.xml
+htmlcov/
 
-# ── ML model artifacts (large binaries — regenerate with train_model.py) ─────
-# Uncomment the line below if you do NOT want to commit trained models:
-# backend/models/*.pkl
-# Keep ml/data/ generated CSVs out of the repo
+# ── Databases (never commit live data) ────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+test_ci.db
+test_railsense.db
+
+# ── ML model artifacts (regenerate with train_model.py) ──────────────────────
+# backend/models/*.pkl   ← uncomment to exclude trained models
 backend/ml/data/*.csv
 
 # ── Node ──────────────────────────────────────────────────────────────────────
@@ -28,8 +40,13 @@ node_modules/
 frontend/dist/
 ntes-bridge/node_modules/
 
+# ── TypeScript build artifacts ─────────────────────────────────────────────
+*.tsbuildinfo
+frontend/tsconfig.node.tsbuildinfo
+
 # ── IDE ───────────────────────────────────────────────────────────────────────
 .vscode/
 .idea/
-*.swp
-*.swo
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+frontend/README.md
