@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import uuid
@@ -10,14 +11,16 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.database import get_db
-from app.models import (
+from ..database import get_db
+from ..models import (
     AlertLevelEnum,
     PlatformAnalysis,
     PriorityLevelEnum,
     Station,
     TrackAnalysis,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/vision", tags=["Vision AI Modules"])
 
@@ -57,16 +60,15 @@ class TrackAnalysisResult(BaseModel):
 async def analyze_platform_camera(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
-    # Mock YOLOv5 crowd and fall detection
+    """Mock YOLOv5 crowd and fall detection from a camera image."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
-    # Get a dummy station for MVP
     result = await db.execute(select(Station).limit(1))
     station = result.scalars().first()
 
     crowd_density = round(random.uniform(1.0, 8.5), 1)
-    fall_detected = random.choice([True, False, False, False])  # 25% chance of fall
+    fall_detected = random.choice([True, False, False, False])
 
     alert_level_str = "green"
     if crowd_density > 6.0 or fall_detected:
@@ -74,7 +76,7 @@ async def analyze_platform_camera(
     elif crowd_density > 4.0:
         alert_level_str = "yellow"
 
-    detections = []
+    detections: List[DetectionBox] = []
     for _ in range(int(crowd_density * 5)):
         detections.append(
             DetectionBox(
@@ -102,19 +104,20 @@ async def analyze_platform_camera(
     analysis_id = str(uuid.uuid4())
 
     if station:
-        db_record = PlatformAnalysis(
-            id=analysis_id,
-            station_id=station.id,
-            platform_number=1,
-            image_url=file.filename,
-            alert_level=AlertLevelEnum(alert_level_str),
-            crowd_density=crowd_density,
-            fall_detected=fall_detected,
-            person_count=len(detections),
-            detection_metadata=[d.model_dump() for d in detections],
-            model_version="yolov5-crowd-v2",
+        db.add(
+            PlatformAnalysis(
+                id=analysis_id,
+                station_id=station.id,
+                platform_number=1,
+                image_url=file.filename,
+                alert_level=AlertLevelEnum(alert_level_str),
+                crowd_density=crowd_density,
+                fall_detected=fall_detected,
+                person_count=len(detections),
+                detection_metadata=[d.model_dump() for d in detections],
+                model_version="yolov5-crowd-v2",
+            )
         )
-        db.add(db_record)
         await db.commit()
 
     alert_ui_level = "Normal"
@@ -132,39 +135,45 @@ async def analyze_platform_camera(
     )
 
 
-VISION_MODEL_PATH = os.path.join(
+# ---------------------------------------------------------------------------
+# Track vision classifier (optional pkl model)
+# ---------------------------------------------------------------------------
+_VISION_MODEL_PATH = os.path.join(
     os.path.dirname(__file__), "..", "..", "ml", "vision_classifier.pkl"
 )
-VISION_MODEL = None
+_VISION_MODEL = None
+_VISION_MODEL_LOADED = False
 
 
-def get_vision_model():
-    """Load and return the vision model."""
-    global VISION_MODEL
-    if VISION_MODEL is None:
-        try:
-            VISION_MODEL = joblib.load(VISION_MODEL_PATH)
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            print(f"Warning: Could not load RandomForest model: {e}")
-    return VISION_MODEL
+def _get_vision_model():
+    global _VISION_MODEL, _VISION_MODEL_LOADED
+    if _VISION_MODEL_LOADED:
+        return _VISION_MODEL
+    _VISION_MODEL_LOADED = True
+    try:
+        _VISION_MODEL = joblib.load(_VISION_MODEL_PATH)
+        logger.info("Vision classifier loaded from %s", _VISION_MODEL_PATH)
+    except Exception as exc:
+        logger.warning("Could not load vision classifier: %s -- using fallback", exc)
+    return _VISION_MODEL
 
 
 @router.post("/track", response_model=TrackAnalysisResult)
-# pylint: disable=too-many-locals,too-many-branches,too-many-statements
 async def analyze_track_imagery(
     file: UploadFile = File(...), db: AsyncSession = Depends(get_db)
 ):
+    """Analyze a track image for defects using the RandomForest classifier or fallback."""
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded")
 
-    # Extract fake features from the file name/size as a proxy for CV processing
-    # In a real app, this would be an actual CV pipeline
     file_size_proxy = len(file.filename)
     bbox_count = (file_size_proxy % 15) + 2
     contrast_score = (file_size_proxy % 10) / 10.0 + 0.1
     edge_density = (file_size_proxy % 20) / 100.0 + 0.05
 
-    model = get_vision_model()
+    model = _get_vision_model()
+    max_risk: float = 0.0
+
     if model:
         features = pd.DataFrame(
             {
@@ -174,49 +183,35 @@ async def analyze_track_imagery(
             }
         )
         priority_class = int(model.predict(features)[0])
-        # 0: Low, 1: Medium, 2: High, 3: Critical
         class_map = {0: "low", 1: "medium", 2: "high", 3: "critical"}
         priority_str = class_map.get(priority_class, "low")
-
-        # Determine defects based on priority
         defects_found = priority_class if priority_class > 0 else 0
-        if priority_str == "critical":
-            max_risk = 9.5
-        elif priority_str == "high":
-            max_risk = 7.5
-        elif priority_str == "medium":
-            max_risk = 5.5
-        else:
-            max_risk = 2.0
+        risk_map = {"critical": 9.5, "high": 7.5, "medium": 5.5, "low": 2.0}
+        max_risk = risk_map.get(priority_str, 2.0)
     else:
-        # Fallback
         defects_found = random.randint(0, 3)
         priority_str = "low"
-        max_risk = 0
+        max_risk = 0.0
 
-    defects = []
+    defects: List[TrackDefect] = []
     defect_types = ["Cracked Fastener", "Missing Clip", "Weld Defect", "Surface Flaw"]
 
     for _ in range(defects_found):
         dtype = random.choice(defect_types)
-
         if not model:
             risk = round(random.uniform(3.0, 9.5), 1)
             max_risk = max(max_risk, risk)
         else:
-            # Use deterministic risk if model is loaded
-            risk = max_risk - random.uniform(0.1, 1.0)
-
-        action = "Schedule Maintenance"
-        if risk > 8.0:
-            action = "Immediate Stop & Inspect"
+            risk = max(0.0, max_risk - random.uniform(0.1, 1.0))
 
         defects.append(
             TrackDefect(
                 defect_class=dtype,
                 confidence=round(random.uniform(0.7, 0.98), 2),
                 risk_score=round(risk, 1),
-                recommended_action=action,
+                recommended_action=(
+                    "Immediate Stop & Inspect" if risk > 8.0 else "Schedule Maintenance"
+                ),
             )
         )
 
@@ -230,23 +225,22 @@ async def analyze_track_imagery(
 
     analysis_id = str(uuid.uuid4())
 
-    db_record = TrackAnalysis(
-        id=analysis_id,
-        image_url=file.filename,
-        risk_score=max_risk,
-        priority_level=PriorityLevelEnum(priority_str),
-        defect_count=defects_found,
-        defects=[d.model_dump() for d in defects],
-        model_version="vit-track-v1",
+    db.add(
+        TrackAnalysis(
+            id=analysis_id,
+            image_url=file.filename,
+            risk_score=max_risk,
+            priority_level=PriorityLevelEnum(priority_str),
+            defect_count=defects_found,
+            defects=[d.model_dump() for d in defects],
+            model_version="vit-track-v1",
+        )
     )
-    db.add(db_record)
     await db.commit()
-
-    ui_priority = priority_str.capitalize()
 
     return TrackAnalysisResult(
         analysis_id=analysis_id,
         defects_found=defects_found,
-        maintenance_priority=ui_priority,
+        maintenance_priority=priority_str.capitalize(),
         defects=defects,
     )

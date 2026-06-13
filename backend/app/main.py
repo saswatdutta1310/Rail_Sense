@@ -1,4 +1,4 @@
-import os
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -11,15 +11,17 @@ from .database import Base, engine
 from .routers import auth, delay, impact, track, vision
 from .routers.sms import router as sms_router
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Resolve the frontend dist folder (evaluated fresh every server start)
 #
 # Project layout:
 #   Rail_Sense-main/
 #     backend/
-#       app/main.py   ← this file
+#       app/main.py   <- this file
 #     frontend/
-#       dist/         ← React build output
+#       dist/         <- React build output
 # ---------------------------------------------------------------------------
 _BACKEND_DIR = Path(__file__).resolve().parent.parent   # .../backend
 _FRONTEND_DIST = _BACKEND_DIR.parent / "frontend" / "dist"
@@ -89,22 +91,23 @@ if _HAS_FRONTEND:
     if _assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
 
-    print(f"[RailSense] ✓ Serving React SPA from {_FRONTEND_DIST}")
+    logger.info("[RailSense] Serving React SPA from %s", _FRONTEND_DIST)
 
     # Catch-all — must be the LAST route registered
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        # Serve real files (favicon.ico, manifest.json, vite.svg …)
+        # Serve real files (favicon.ico, manifest.json, etc.)
         target = _FRONTEND_DIST / full_path
         if target.is_file():
             return FileResponse(str(target))
-        # All other paths → React Router handles routing client-side
+        # All other paths -> React Router handles routing client-side
         return FileResponse(str(_FRONTEND_DIST / "index.html"))
 
 else:
-    print(
-        f"[RailSense] ⚠ Frontend dist not found at {_FRONTEND_DIST}. "
-        "Run  npm run build  inside /frontend  to enable unified mode."
+    logger.warning(
+        "[RailSense] Frontend dist not found at %s. "
+        "Run 'npm run build' inside /frontend to enable unified mode.",
+        _FRONTEND_DIST,
     )
 
     @app.get("/", include_in_schema=False)

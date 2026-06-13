@@ -4,8 +4,8 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
-from app.database import get_db
-from app.models import DelayPrediction, PlatformAnalysis, Station, TrackAnalysis
+from ..database import get_db
+from ..models import DelayPrediction, PlatformAnalysis, Station, TrackAnalysis
 
 router = APIRouter(prefix="/api/impact", tags=["Impact Dashboard"])
 
