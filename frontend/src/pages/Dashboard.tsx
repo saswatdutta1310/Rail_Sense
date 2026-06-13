@@ -41,12 +41,30 @@ const modules = [
 ];
 
 const destinations = [
-  { name: 'Mumbai', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Mumbai_03-2016_30_Gateway_of_India.jpg/800px-Mumbai_03-2016_30_Gateway_of_India.jpg' },
-  { name: 'Delhi', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Qutab_Minar_mhe.jpg/800px-Qutab_Minar_mhe.jpg' },
-  { name: 'Jaipur', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Hawa_Mahal_Jaipur.jpg/800px-Hawa_Mahal_Jaipur.jpg' },
-  { name: 'Chennai', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Meenakshi_amman_temple.jpg/800px-Meenakshi_amman_temple.jpg' },
-  { name: 'Visakhapatnam', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/25/Rishikonda_Beach_Visakhapatnam.jpg/800px-Rishikonda_Beach_Visakhapatnam.jpg' },
-  { name: 'Ladakh', img: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Hemis_monastery.jpg/800px-Hemis_monastery.jpg' },
+  {
+    name: 'Mumbai',
+    img: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=600&q=80&fit=crop',
+  },
+  {
+    name: 'Delhi',
+    img: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=600&q=80&fit=crop',
+  },
+  {
+    name: 'Jaipur',
+    img: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=600&q=80&fit=crop',
+  },
+  {
+    name: 'Chennai',
+    img: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=600&q=80&fit=crop',
+  },
+  {
+    name: 'Visakhapatnam',
+    img: 'https://images.unsplash.com/photo-1625493507673-7d5d84bfef02?w=600&q=80&fit=crop',
+  },
+  {
+    name: 'Ladakh',
+    img: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=600&q=80&fit=crop',
+  },
 ];
 
 interface ImpactResponse {
@@ -284,7 +302,22 @@ export default function Dashboard() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             {destinations.map(d => (
               <div key={d.name} className="relative rounded-2xl overflow-hidden h-44 cursor-pointer group">
-                <img src={d.img} alt={d.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <img
+                  src={d.img}
+                  alt={d.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.img-fallback')) {
+                      const fb = document.createElement('div');
+                      fb.className = 'img-fallback w-full h-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center';
+                      fb.innerHTML = `<span style="font-family:sans-serif;color:white;font-size:32px;opacity:0.6">🏙️</span>`;
+                      parent.insertBefore(fb, parent.firstChild);
+                    }
+                  }}
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
                 <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center cursor-pointer hover:bg-[#F97316] transition-colors group/heart"
                   onClick={() => setLiked(prev => ({ ...prev, [d.name]: !prev[d.name] }))}>
