@@ -5,18 +5,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 
-  // In production the FastAPI server serves from /
   base: '/',
 
   build: {
-    // Output directly into backend-adjacent dist folder
     outDir: 'dist',
     emptyOutDir: true,
   },
 
+  // Dev server — proxy /api to local FastAPI backend
   server: {
     port: 5173,
-    // Proxy API calls to FastAPI during `npm run dev`
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',
@@ -24,4 +22,9 @@ export default defineConfig({
       },
     },
   },
+
+  // Expose VITE_API_BASE_URL to the client bundle when set
+  // Set this in Vercel → Project Settings → Environment Variables:
+  //   VITE_API_BASE_URL = https://rail-sense-api.onrender.com/api
+  envPrefix: 'VITE_',
 })

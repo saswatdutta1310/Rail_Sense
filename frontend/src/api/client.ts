@@ -1,16 +1,25 @@
-// In dev (Vite proxy) use relative /api so the proxy kicks in.
-// In production (FastAPI serves the SPA) also use relative /api.
-// Only fall back to the explicit localhost URL if VITE_API_BASE_URL is set.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
+/**
+ * API base URL resolution:
+ *
+ * - Local dev (Vite): VITE_API_BASE_URL is not set → use relative '/api'
+ *   Vite's proxy forwards /api → http://localhost:8000/api
+ *
+ * - Vercel production: VITE_API_BASE_URL is set to the Render backend URL
+ *   e.g. https://rail-sense-api.onrender.com/api
+ *   Set this in Vercel Dashboard → Project Settings → Environment Variables
+ *
+ * - Unified mode (FastAPI serves the SPA): relative '/api' always works
+ */
+export const API_BASE_URL: string =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? '/api';
 
 /**
- * Generic API client wrapper around fetch that handles JSON and errors.
- * Automatically attaches the Bearer token from localStorage when present.
+ * Generic fetch wrapper with JWT auth, JSON handling and mock fallback.
  */
 export async function apiCall<T>(
   endpoint: string,
   options: RequestInit = {},
-  mockFallback?: T
+  mockFallback?: T,
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   const token = localStorage.getItem('token');
@@ -26,10 +35,7 @@ export async function apiCall<T>(
   try {
     const response = await fetch(url, {
       ...options,
-      headers: {
-        ...headers,
-        ...options.headers,
-      },
+      headers: { ...headers, ...options.headers },
     });
 
     if (!response.ok) {
@@ -39,8 +45,8 @@ export async function apiCall<T>(
 
     return (await response.json()) as T;
   } catch (error) {
-    console.warn(`[API WARNING] Failed to fetch ${url}. Using mock fallback if provided.`, error);
     if (mockFallback !== undefined) {
+      console.warn(`[API] Falling back to mock for ${url}:`, error);
       return mockFallback;
     }
     throw error;
