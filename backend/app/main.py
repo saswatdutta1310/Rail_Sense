@@ -1,11 +1,16 @@
 import logging
+import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from .database import Base, engine
 from .routers import auth, delay, impact, track, vision
@@ -14,19 +19,76 @@ from .routers.sms import router as sms_router
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Resolve the frontend dist folder (evaluated fresh every server start)
-#
-# Project layout:
-#   Rail_Sense-main/
-#     backend/
-#       app/main.py   <- this file
-#     frontend/
-#       dist/         <- React build output
+# Resolve the frontend dist folder
 # ---------------------------------------------------------------------------
-_BACKEND_DIR = Path(__file__).resolve().parent.parent   # .../backend
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
 _FRONTEND_DIST = _BACKEND_DIR.parent / "frontend" / "dist"
 _HAS_FRONTEND = _FRONTEND_DIST.exists() and (_FRONTEND_DIST / "index.html").exists()
 
+# ---------------------------------------------------------------------------
+# CORS — build allowed-origins list from env + hardcoded defaults
+# Supports Vercel preview URLs like rail-sense-xyz-abc.vercel.app
+# ---------------------------------------------------------------------------
+_CORS_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://rail-sense.vercel.app",
+]
+
+# Accept comma-separated extra origins from CORS_ORIGIN env var
+_extra = os.getenv("CORS_ORIGIN", "")
+for _o in _extra.split(","):
+    _o = _o.strip().rstrip("/")
+    if _o and _o not in _CORS_ORIGINS:
+        _CORS_ORIGINS.append(_o)
+
+# Regex to match any *.vercel.app preview URL at runtime
+_VERCEL_ORIGIN_RE = re.compile(r"^https://[a-z0-9-]+-[a-z0-9]+-[a-z0-9]+\.vercel\.app$")
+
+
+class DynamicCORSMiddleware(BaseHTTPMiddleware):
+    """
+    Extends the static CORS list to also accept any *.vercel.app preview URL.
+    This handles Vercel branch/PR deployments without having to hardcode each URL.
+    """
+
+    async def dispatch(self, request: Request, call_next: Any) -> Response:
+        origin = request.headers.get("origin", "")
+        allowed = (
+            origin in _CORS_ORIGINS
+            or bool(_VERCEL_ORIGIN_RE.match(origin))
+        )
+
+        if request.method == "OPTIONS" and allowed:
+            return Response(
+                status_code=200,
+                headers={
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Max-Age": "86400",
+                },
+            )
+
+        response = await call_next(request)
+
+        if allowed:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = (
+                "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            )
+            response.headers["Access-Control-Allow-Headers"] = "*"
+
+        return response
+
+
+# ---------------------------------------------------------------------------
+# App factory
+# ---------------------------------------------------------------------------
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,23 +107,20 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-# ---------------------------------------------------------------------------
-# CORS — permits the Vite dev server (:5173) when developing separately
-# ---------------------------------------------------------------------------
+# Standard CORSMiddleware for the known static origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:8000",
-    ],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Dynamic middleware for Vercel preview URLs (*.vercel.app)
+app.add_middleware(DynamicCORSMiddleware)
+
 # ---------------------------------------------------------------------------
-# API routers — always mounted regardless of frontend presence
+# API routers
 # ---------------------------------------------------------------------------
 app.include_router(sms_router, prefix="/api/sms", tags=["sms"])
 app.include_router(auth.router)
@@ -77,36 +136,31 @@ async def health_check():
         "status": "ok",
         "version": "1.0.0",
         "mode": "unified" if _HAS_FRONTEND else "api-only",
-        "frontend_dist": str(_FRONTEND_DIST),
         "frontend_found": _HAS_FRONTEND,
+        "cors_origins": len(_CORS_ORIGINS),
     }
 
 
 # ---------------------------------------------------------------------------
-# Static file + SPA serving — only active when dist/ exists
+# Static SPA serving — only active when frontend/dist exists
 # ---------------------------------------------------------------------------
 if _HAS_FRONTEND:
-    # Serve the /assets directory (hashed JS/CSS bundles)
     _assets_dir = _FRONTEND_DIST / "assets"
     if _assets_dir.is_dir():
         app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="assets")
 
     logger.info("[RailSense] Serving React SPA from %s", _FRONTEND_DIST)
 
-    # Catch-all — must be the LAST route registered
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_spa(full_path: str):
-        # Serve real files (favicon.ico, manifest.json, etc.)
         target = _FRONTEND_DIST / full_path
         if target.is_file():
             return FileResponse(str(target))
-        # All other paths -> React Router handles routing client-side
         return FileResponse(str(_FRONTEND_DIST / "index.html"))
 
 else:
     logger.warning(
-        "[RailSense] Frontend dist not found at %s. "
-        "Run 'npm run build' inside /frontend to enable unified mode.",
+        "[RailSense] Frontend dist not found at %s — API-only mode.",
         _FRONTEND_DIST,
     )
 
@@ -114,6 +168,5 @@ else:
     async def root_api_only():
         return {
             "message": "RailSense AI API is running.",
-            "hint": "Run `npm run build` inside /frontend then restart the server.",
             "docs": "/api/docs",
         }

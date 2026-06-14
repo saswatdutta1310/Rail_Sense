@@ -2,6 +2,20 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+# ---------------------------------------------------------------------------
+# Silence the passlib/bcrypt version-detection warning that appears with
+# bcrypt >= 4.1 (passlib reads __about__.__version__ which no longer exists).
+# Must be patched BEFORE passlib.context is imported.
+# ---------------------------------------------------------------------------
+try:
+    import bcrypt as _bcrypt
+    if not hasattr(_bcrypt, "__about__"):
+        class _About:
+            __version__ = getattr(_bcrypt, "__version__", "4.0.1")
+        _bcrypt.__about__ = _About()
+except Exception:
+    pass
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
