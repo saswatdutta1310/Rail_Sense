@@ -37,7 +37,11 @@ export default function Login() {
       await login(data.access_token);
       navigate('/', { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An error occurred during login');
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setError('Cannot reach the server. Make sure the backend is running on port 8000.');
+      } else {
+        setError(err instanceof Error ? err.message : 'An error occurred during login');
+      }
     } finally {
       setIsLoading(false);
     }
