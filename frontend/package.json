@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "vercel-build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest",
     "test:ui": "vitest --ui",
